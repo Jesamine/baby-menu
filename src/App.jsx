@@ -204,9 +204,10 @@ export default function App() {
             setLogs(d.logs || []);
             setWeekPlan(d.weekPlan || {});
             setPantry(d.pantry || []);
+            setAgeSlider(d.ageSlider || 5);
             lastSyncedRef.current = JSON.stringify(d);
           } else {
-            const initial = { tried: [], logs: [], weekPlan: {}, pantry: [] };
+            const initial = { tried: [], logs: [], weekPlan: {}, pantry: [], ageSlider: 5 };
             await supabase.from("isaac_data").upsert({ id: "isaac", data: initial });
             lastSyncedRef.current = JSON.stringify(initial);
           }
@@ -222,6 +223,7 @@ export default function App() {
             setLogs(parsed.logs || []);
             setWeekPlan(parsed.weekPlan || {});
             setPantry(parsed.pantry || []);
+            setAgeSlider(parsed.ageSlider || 5);
           }
         } catch (e) {
           // no saved data yet
@@ -233,7 +235,7 @@ export default function App() {
 
   useEffect(() => {
     if (!loaded) return;
-    const current = { tried, logs, weekPlan, pantry };
+    const current = { tried, logs, weekPlan, pantry, ageSlider };
     const currentStr = JSON.stringify(current);
     if (currentStr === lastSyncedRef.current) return;
 
@@ -256,7 +258,7 @@ export default function App() {
         // will retry on next change
       }
     }, 800);
-  }, [tried, logs, weekPlan, pantry, loaded]);
+  }, [tried, logs, weekPlan, pantry, ageSlider, loaded]);
 
   useEffect(() => {
     if (!supabaseEnabled) return;
@@ -274,6 +276,7 @@ export default function App() {
           setLogs(incoming.logs || []);
           setWeekPlan(incoming.weekPlan || {});
           setPantry(incoming.pantry || []);
+          setAgeSlider(incoming.ageSlider || 5);
           lastSyncedRef.current = incomingStr;
         }
       )
