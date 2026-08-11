@@ -1,0 +1,1215 @@
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Search, X, Check, AlertTriangle, Lock, Plus, Trash2, Package, Smile, Meh, Frown, ShoppingCart, Download, Copy, ShieldAlert } from "lucide-react";
+import { supabase, supabaseEnabled } from "./supabaseClient";
+
+const COLORS = {
+  bg: "#EEF0E4",
+  surface: "#FBFAF5",
+  ink: "#332A31",
+  inkSoft: "#6B5F66",
+  header: "#4A3348",
+  warn: "#B8452C",
+  warnBg: "#F5E4DE",
+  line: "#DDDCCB",
+};
+
+const CATEGORY_COLORS = {
+  Groente: "#7A9B6E",
+  Fruit: "#D9762E",
+  Granen: "#C9A227",
+  Eiwit: "#A24B3F",
+  Zuivel: "#8B6BA8",
+};
+
+const FOODS = [
+  { id: "avocado", name: "Avocado", cat: "Fruit", minAge: 6, prep: { 6: "Fijn geprakt met een vork.", 8: "In dikke sticks als vingervoedsel." }, note: "" },
+  { id: "banaan", name: "Banaan", cat: "Fruit", minAge: 6, prep: { 6: "Geprakt of als dikke puree.", 8: "Halve banaan als stick om vast te houden." }, note: "" },
+  { id: "zoete-aardappel", name: "Zoete aardappel", cat: "Groente", minAge: 6, prep: { 6: "Gekookt en fijn geprakt.", 9: "In zachte, gegaarde blokjes." }, note: "" },
+  { id: "wortel", name: "Wortel", cat: "Groente", minAge: 6, prep: { 6: "Gekookt tot heel zacht, geprakt of in puree." }, choking: "Nooit rauw of in harde stukken geven — verstikkingsgevaar. Enkel goed gaar en zacht.", note: "" },
+  { id: "broccoli", name: "Broccoli", cat: "Groente", minAge: 6, prep: { 6: "Gestoomd tot zacht, als puree.", 8: "Zachte roosjes als vingervoedsel." }, note: "" },
+  { id: "courgette", name: "Courgette", cat: "Groente", minAge: 6, prep: { 6: "Gestoomd en geprakt." }, note: "" },
+  { id: "pompoen", name: "Pompoen", cat: "Groente", minAge: 6, prep: { 6: "Gekookt en fijngeprakt." }, note: "" },
+  { id: "appel", name: "Appel", cat: "Fruit", minAge: 6, prep: { 6: "Gestoofd en geprakt (niet rauw).", 9: "Rauw geraspt of heel dun gesneden." }, choking: "Nooit rauwe stukken of partjes met schil — verstikkingsgevaar.", note: "" },
+  { id: "peer", name: "Peer", cat: "Fruit", minAge: 6, prep: { 6: "Gestoofd en geprakt, of heel rijp geprakt." }, note: "" },
+  { id: "perzik", name: "Perzik", cat: "Fruit", minAge: 6, prep: { 6: "Geschild en geprakt." }, note: "" },
+  { id: "mango", name: "Mango", cat: "Fruit", minAge: 6, prep: { 6: "Fijn geprakt.", 8: "In zachte, dunne repen." }, note: "" },
+  { id: "blauwe-bessen", name: "Blauwe bessen", cat: "Fruit", minAge: 6, prep: { 6: "Altijd platdrukken of in kwartjes snijden." }, choking: "Rond en glad — verstikkingsgevaar. Nooit heel geven, ook niet later.", note: "" },
+  { id: "druiven", name: "Druiven", cat: "Fruit", minAge: 9, prep: { 9: "In de lengte in kwartjes gesneden, nooit heel." }, choking: "Klassieke verstikkingshazard. Altijd in kwartjes snijden, ook bij grotere kinderen.", note: "" },
+  { id: "havermout", name: "Havermout", cat: "Granen", minAge: 6, prep: { 6: "Als papje met moedermelk/opvolgmelk of water." }, note: "" },
+  { id: "volkoren-brood", name: "Volkoren brood", cat: "Granen", minAge: 6, prep: { 6: "Geroosterd in dikke soldaatjes." }, note: "Let op broodjes met hele noten of zaden erop — apart houden." },
+  { id: "rijst", name: "Rijst", cat: "Granen", minAge: 6, prep: { 6: "Goed gaar gekookt, eventueel fijngeprakt." }, note: "" },
+  { id: "quinoa", name: "Quinoa", cat: "Granen", minAge: 6, prep: { 6: "Goed gaar gekookt en zacht." }, note: "" },
+  { id: "pasta", name: "Volkoren pasta", cat: "Granen", minAge: 8, prep: { 8: "Goed gaar, grote pastavormen als vingervoedsel." }, note: "" },
+  { id: "kip", name: "Kip", cat: "Eiwit", minAge: 6, prep: { 6: "Goed gaar, fijngeprakt of gemalen.", 9: "In dradige stukjes." }, choking: "Altijd controleren op botjes.", note: "" },
+  { id: "rundvlees", name: "Rundsgehakt", cat: "Eiwit", minAge: 6, prep: { 6: "Goed gaar gebakken, fijngeprakt." }, note: "" },
+  { id: "vis", name: "Witte vis / zalm", cat: "Eiwit", minAge: 6, prep: { 6: "Goed gaar, fijngeprakt." }, choking: "Zorgvuldig controleren op graten.", allergen: true, note: "Mogelijk allergeen — start met een klein beetje en observeer." },
+  { id: "ei", name: "Ei", cat: "Eiwit", minAge: 6, prep: { 6: "Volledig gaar (geen lopend eigeel), geprakt of als reepjes omelet." }, allergen: true, note: "Belangrijk allergeen — vroeg introduceren wordt net aangeraden. Bij eczeem of familiale allergie: overleg eerst met je kinderarts." },
+  { id: "linzen", name: "Linzen", cat: "Eiwit", minAge: 6, prep: { 6: "Goed gaar gekookt en fijngeprakt." }, note: "" },
+  { id: "kikkererwten", name: "Kikkererwten", cat: "Eiwit", minAge: 6, prep: { 6: "Gaar en goed geprakt (velletjes kunnen blijven plakken)." }, choking: "Hele kikkererwten kunnen verstikkingsgevaar geven — goed prakken.", note: "" },
+  { id: "pindakaas", name: "Pindakaas (glad)", cat: "Eiwit", minAge: 6, prep: { 6: "Dun uitgesmeerd op brood of aangelengd met wat water/puree — nooit een lepel dik." }, allergen: true, choking: "Nooit een klodder pure pindakaas geven — plakt en verstikt.", note: "Belangrijk allergeen. Vroege introductie wordt aangeraden. Bij eczeem of familiale allergie: overleg eerst met je kinderarts of Kind en Gezin." },
+  { id: "yoghurt", name: "Volle natuuryoghurt", cat: "Zuivel", minAge: 6, prep: { 6: "Puur, zonder toegevoegde suiker." }, note: "Zuivel als voeding mag vanaf 6m; koemelk als drank pas vanaf 12m." },
+  { id: "kaas", name: "Zachte kaas (gepasteuriseerd)", cat: "Zuivel", minAge: 6, prep: { 6: "In kleine geraspte of gesmolten stukjes." }, note: "Vermijd rauwmelkse/ongepasteuriseerde kaas." },
+  { id: "honing", name: "Honing", cat: "Fruit", minAge: 12, prep: {}, choking: "Nooit vóór 12 maanden — risico op infant botulisme.", note: "Pas vanaf 12 maanden, ook niet verwerkt in gebak voor die leeftijd." },
+];
+
+const RECIPES = [
+  { id: "r1", name: "Avocado-bananenprak", mealType: "Ontbijt", foodIds: ["avocado", "banaan"], steps: ["Prak avocado en banaan apart fijn met een vork.", "Meng samen tot een gladde prak.", "Serveer meteen — avocado verkleurt snel."] },
+  { id: "r2", name: "Havermoutpap met peer", mealType: "Ontbijt", foodIds: ["havermout", "peer"], steps: ["Kook havermout gaar met water of moedermelk/opvolgmelk.", "Stoof de peer zacht en prak fijn.", "Meng door de pap."] },
+  { id: "r3", name: "Omeletreepjes met kaas", mealType: "Ontbijt", foodIds: ["ei", "kaas"], steps: ["Klop het ei los, meng er wat geraspte kaas door.", "Bak op laag vuur volledig gaar, geen lopend deel meer.", "Snijd in dunne reepjes."] },
+  { id: "r4", name: "Zoete aardappel-appelpuree", mealType: "Lunch", foodIds: ["zoete-aardappel", "appel"], steps: ["Kook zoete aardappel en appel apart gaar.", "Prak beiden fijn.", "Meng samen tot een gladde puree."] },
+  { id: "r5", name: "Broccoli-kaasprak", mealType: "Lunch", foodIds: ["broccoli", "kaas"], steps: ["Stoom de broccoli tot heel zacht.", "Prak fijn en meng er wat geraspte kaas door tot die smelt."] },
+  { id: "r6", name: "Kikkererwtenprak met courgette", mealType: "Lunch", foodIds: ["kikkererwten", "courgette"], steps: ["Kook de courgette zacht.", "Prak kikkererwten goed fijn (velletjes kunnen blijven plakken).", "Meng samen."] },
+  { id: "r7", name: "Quinoasalade met broccoli", mealType: "Lunch", foodIds: ["quinoa", "broccoli"], steps: ["Kook quinoa gaar en zacht.", "Stoom broccoli tot zacht en snijd klein.", "Meng lauw of koud."] },
+  { id: "r8", name: "Kip-groentestoofje", mealType: "Diner", foodIds: ["kip", "wortel", "courgette"], steps: ["Stoof kip, wortel en courgette samen goed gaar.", "Prak of snijd fijn naargelang leeftijd.", "Controleer altijd op botjes."] },
+  { id: "r9", name: "Linzen-pompoenpuree", mealType: "Diner", foodIds: ["linzen", "pompoen"], steps: ["Kook linzen en pompoen samen gaar.", "Prak tot een gladde puree."] },
+  { id: "r10", name: "Rundsgehakt met zoete aardappel", mealType: "Diner", foodIds: ["rundvlees", "zoete-aardappel"], steps: ["Bak het gehakt volledig gaar, verkruimel fijn.", "Kook de zoete aardappel gaar en prak.", "Meng samen."] },
+  { id: "r11", name: "Zalmpuree met wortel", mealType: "Diner", foodIds: ["vis", "wortel"], steps: ["Gaar de zalm en controleer zorgvuldig op graten.", "Kook de wortel heel zacht.", "Prak beide samen."] },
+  { id: "r12", name: "Yoghurt met mango", mealType: "Snack", foodIds: ["yoghurt", "mango"], steps: ["Prak de mango fijn.", "Meng door de volle yoghurt."] },
+  { id: "r13", name: "Toast met pindakaas", mealType: "Snack", foodIds: ["volkoren-brood", "pindakaas"], steps: ["Rooster het brood.", "Smeer een heel dunne laag gladde pindakaas uit — nooit een dikke klodder.", "Snijd in soldaatjes."] },
+];
+
+function ageLabel(age) {
+  return age >= 12 ? `${Math.round(age / 12 * 10) / 10}j` : `${age}m`;
+}
+
+function pad(n) {
+  return String(n).padStart(2, "0");
+}
+function isoOf(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function todayISO() {
+  return isoOf(new Date());
+}
+function nowTimeString() {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+const WEEKDAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
+const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+function last7Days() {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(isoOf(d));
+  }
+  return days;
+}
+function dayLabel(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return { weekday: WEEKDAYS[d.getDay()], num: d.getDate() };
+}
+function dateTitle(iso) {
+  const d = new Date(iso + "T00:00:00");
+  if (iso === todayISO()) return "Vandaag";
+  const yest = new Date();
+  yest.setDate(yest.getDate() - 1);
+  if (iso === isoOf(yest)) return "Gisteren";
+  return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+const MEAL_TYPES = ["Ontbijt", "Lunch", "Diner"];
+function recipeAgeMin(r) {
+  return Math.max(...r.foodIds.map((id) => FOODS.find((f) => f.id === id)?.minAge || 0));
+}
+function recipePantryReady(r, pantry) {
+  return r.foodIds.every((id) => pantry.includes(id));
+}
+
+const ALLERGENS = [
+  { key: "ei", label: "Ei", foodId: "ei" },
+  { key: "pinda", label: "Pinda (pindakaas)", foodId: "pindakaas" },
+  { key: "vis", label: "Vis", foodId: "vis" },
+  { key: "zuivel", label: "Koemelk / zuivel", foodId: "yoghurt" },
+  { key: "gluten", label: "Gluten (tarwe)", foodId: "volkoren-brood" },
+];
+
+const REACTIONS = [
+  { key: "lekker", label: "Lekker", icon: Smile, color: "#7A9B6E" },
+  { key: "neutraal", label: "Neutraal", icon: Meh, color: "#C9A227" },
+  { key: "vies", label: "Vies", icon: Frown, color: "#B8452C" },
+];
+
+function weekFrequency(logs) {
+  const days = last7Days();
+  const counts = {};
+  logs.forEach((e) => {
+    if (!days.includes(e.date)) return;
+    counts[e.foodId] = (counts[e.foodId] || 0) + 1;
+  });
+  return Object.entries(counts)
+    .map(([foodId, count]) => ({ foodId, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+}
+function currentWeekDays() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diff);
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    days.push(isoOf(d));
+  }
+  return days;
+}
+
+export default function App() {
+  const [query, setQuery] = useState("");
+  const [activeCats, setActiveCats] = useState([]);
+  const [ageSlider, setAgeSlider] = useState(5);
+  const [tried, setTried] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  const [view, setView] = useState("menu");
+  const [selectedDate, setSelectedDate] = useState(todayISO());
+  const [showAddLog, setShowAddLog] = useState(false);
+  const [logSearch, setLogSearch] = useState("");
+  const [recipeSubView, setRecipeSubView] = useState("list");
+  const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [weekPlan, setWeekPlan] = useState({});
+  const [planPicker, setPlanPicker] = useState(null);
+  const [pantry, setPantry] = useState([]);
+  const [pantrySearch, setPantrySearch] = useState("");
+  const [pantryOnly, setPantryOnly] = useState(false);
+  const [selectedLogEntry, setSelectedLogEntry] = useState(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [showShoppingList, setShowShoppingList] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [copyLabel, setCopyLabel] = useState("Kopieer");
+
+  useEffect(() => {
+    const link1 = document.createElement("link");
+    link1.href = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap";
+    link1.rel = "stylesheet";
+    document.head.appendChild(link1);
+  }, []);
+
+  const lastSyncedRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      if (supabaseEnabled) {
+        try {
+          const { data } = await supabase.from("isaac_data").select("data").eq("id", "isaac").single();
+          if (data && data.data) {
+            const d = data.data;
+            setTried(d.tried || []);
+            setLogs(d.logs || []);
+            setWeekPlan(d.weekPlan || {});
+            setPantry(d.pantry || []);
+            lastSyncedRef.current = JSON.stringify(d);
+          } else {
+            const initial = { tried: [], logs: [], weekPlan: {}, pantry: [] };
+            await supabase.from("isaac_data").upsert({ id: "isaac", data: initial });
+            lastSyncedRef.current = JSON.stringify(initial);
+          }
+        } catch (e) {
+          // if this fails, the app still works locally for this session
+        }
+      } else {
+        try {
+          const raw = localStorage.getItem("isaac-data");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            setTried(parsed.tried || []);
+            setLogs(parsed.logs || []);
+            setWeekPlan(parsed.weekPlan || {});
+            setPantry(parsed.pantry || []);
+          }
+        } catch (e) {
+          // no saved data yet
+        }
+      }
+      setLoaded(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const current = { tried, logs, weekPlan, pantry };
+    const currentStr = JSON.stringify(current);
+    if (currentStr === lastSyncedRef.current) return;
+
+    if (!supabaseEnabled) {
+      try {
+        localStorage.setItem("isaac-data", currentStr);
+      } catch (e) {
+        // storage full or unavailable
+      }
+      lastSyncedRef.current = currentStr;
+      return;
+    }
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await supabase.from("isaac_data").upsert({ id: "isaac", data: current, updated_at: new Date().toISOString() });
+        lastSyncedRef.current = currentStr;
+      } catch (e) {
+        // will retry on next change
+      }
+    }, 800);
+  }, [tried, logs, weekPlan, pantry, loaded]);
+
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    const channel = supabase
+      .channel("isaac_data_changes")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "isaac_data", filter: "id=eq.isaac" },
+        (payload) => {
+          const incoming = payload.new?.data;
+          if (!incoming) return;
+          const incomingStr = JSON.stringify(incoming);
+          if (incomingStr === lastSyncedRef.current) return;
+          setTried(incoming.tried || []);
+          setLogs(incoming.logs || []);
+          setWeekPlan(incoming.weekPlan || {});
+          setPantry(incoming.pantry || []);
+          lastSyncedRef.current = incomingStr;
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const togglePantry = (id) => {
+    setPantry((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  };
+
+  const toggleTried = (id) => {
+    setTried((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
+  };
+
+  const addLogEntry = (foodId) => {
+    const entry = { id: `${Date.now()}-${foodId}`, foodId, date: selectedDate, time: nowTimeString(), reaction: null, note: "" };
+    setLogs((l) => [...l, entry]);
+    setTried((t) => (t.includes(foodId) ? t : [...t, foodId]));
+  };
+
+  const updateLogEntry = (id, updates) => {
+    setLogs((l) => l.map((e) => (e.id === id ? { ...e, ...updates } : e)));
+  };
+
+  const removeLogEntry = (id) => {
+    setLogs((l) => l.filter((e) => e.id !== id));
+  };
+
+  const assignPlan = (date, mealType, recipeId) => {
+    setWeekPlan((wp) => ({ ...wp, [`${date}-${mealType}`]: recipeId }));
+    setPlanPicker(null);
+  };
+
+  const clearPlan = (date, mealType) => {
+    setWeekPlan((wp) => {
+      const copy = { ...wp };
+      delete copy[`${date}-${mealType}`];
+      return copy;
+    });
+    setPlanPicker(null);
+  };
+
+  const toggleCat = (cat) => {
+    setActiveCats((c) => (c.includes(cat) ? c.filter((x) => x !== cat) : [...c, cat]));
+  };
+
+  const filtered = useMemo(() => {
+    return FOODS.filter((f) => {
+      if (query && !f.name.toLowerCase().includes(query.toLowerCase())) return false;
+      if (activeCats.length && !activeCats.includes(f.cat)) return false;
+      return true;
+    }).sort((a, b) => a.minAge - b.minAge || a.name.localeCompare(b.name));
+  }, [query, activeCats]);
+
+  return (
+    <div style={{ background: COLORS.bg, minHeight: "100vh", fontFamily: "'IBM Plex Sans', sans-serif", color: COLORS.ink }}>
+      <div className="max-w-md mx-auto px-4 pb-16">
+        <header className="pt-8 pb-5">
+          <p style={{ color: COLORS.inkSoft, fontFamily: "'IBM Plex Sans', sans-serif" }} className="text-xs tracking-widest uppercase mb-1">Isaac's eerste happen</p>
+          <h1 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header, fontWeight: 600 }} className="text-3xl leading-tight">
+            Wat kan Isaac al eten?
+          </h1>
+        </header>
+
+        <div className="flex gap-1 p-1 rounded-full mb-5" style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}` }}>
+          {[
+            { key: "menu", label: "Menu" },
+            { key: "log", label: "Dagboek" },
+            { key: "recipes", label: "Recepten" },
+          ].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setView(t.key)}
+              className="flex-1 text-sm font-medium py-2 rounded-full transition"
+              style={{
+                background: view === t.key ? COLORS.header : "transparent",
+                color: view === t.key ? "#fff" : COLORS.inkSoft,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {view === "menu" && (
+        <>
+        <div className="rounded-2xl p-4 mb-4" style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}` }}>
+          <div className="flex justify-between items-baseline mb-2">
+            <label style={{ color: COLORS.inkSoft }} className="text-sm">Isaac is nu</label>
+            <span style={{ color: COLORS.header, fontFamily: "'Fraunces', serif" }} className="text-lg font-semibold">{ageLabel(ageSlider)}</span>
+          </div>
+          <input
+            type="range"
+            min={4}
+            max={24}
+            value={ageSlider}
+            onChange={(e) => setAgeSlider(Number(e.target.value))}
+            className="w-full"
+            style={{ accentColor: COLORS.header }}
+          />
+          <div className="flex justify-between text-xs mt-1" style={{ color: COLORS.inkSoft }}>
+            <span>4m</span>
+            <span>24m</span>
+          </div>
+        </div>
+
+        <div className="relative mb-3">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: COLORS.inkSoft }} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Zoek een voedingsmiddel..."
+            className="w-full rounded-xl py-2.5 pl-9 pr-3 text-sm outline-none"
+            style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+          />
+        </div>
+
+        <div className="flex gap-2 flex-wrap mb-5">
+          {Object.keys(CATEGORY_COLORS).map((cat) => {
+            const active = activeCats.includes(cat);
+            return (
+              <button
+                key={cat}
+                onClick={() => toggleCat(cat)}
+                className="px-3 py-1.5 rounded-full text-xs font-medium transition"
+                style={{
+                  background: active ? CATEGORY_COLORS[cat] : COLORS.surface,
+                  color: active ? "#fff" : COLORS.ink,
+                  border: `1px solid ${active ? CATEGORY_COLORS[cat] : COLORS.line}`,
+                }}
+              >
+                {cat}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {filtered.map((f) => {
+            const available = f.minAge <= ageSlider;
+            const isTried = tried.includes(f.id);
+            return (
+              <button
+                key={f.id}
+                onClick={() => setSelected(f)}
+                className="rounded-2xl p-3 text-left relative"
+                style={{
+                  background: COLORS.surface,
+                  border: `1px solid ${COLORS.line}`,
+                  opacity: available ? 1 : 0.55,
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span
+                    className="inline-block rounded-full"
+                    style={{ width: 22, height: 22, background: CATEGORY_COLORS[f.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%" }}
+                  />
+                  {isTried && <Check size={16} style={{ color: CATEGORY_COLORS.Groente }} />}
+                  {!available && <Lock size={13} style={{ color: COLORS.inkSoft }} />}
+                </div>
+                <p className="text-sm font-medium leading-tight">{f.name}</p>
+                <p className="text-xs mt-1" style={{ color: available ? COLORS.inkSoft : COLORS.warn }}>
+                  {available ? "geschikt nu" : `vanaf ${ageLabel(f.minAge)}`}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+
+        {filtered.length === 0 && (
+          <p className="text-sm text-center mt-8" style={{ color: COLORS.inkSoft }}>Niets gevonden voor deze zoekopdracht.</p>
+        )}
+        </>
+        )}
+
+        {view === "log" && (
+        <div>
+          <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+            {last7Days().map((iso) => {
+              const dayEntries = logs.filter((e) => e.date === iso);
+              const cats = [...new Set(dayEntries.map((e) => FOODS.find((f) => f.id === e.foodId)?.cat))].filter(Boolean);
+              const { weekday, num } = dayLabel(iso);
+              const active = iso === selectedDate;
+              return (
+                <button
+                  key={iso}
+                  onClick={() => setSelectedDate(iso)}
+                  className="flex flex-col items-center justify-center rounded-xl flex-shrink-0"
+                  style={{
+                    width: 44,
+                    height: 58,
+                    background: active ? COLORS.header : COLORS.surface,
+                    border: `1px solid ${active ? COLORS.header : COLORS.line}`,
+                  }}
+                >
+                  <span className="text-[10px]" style={{ color: active ? "#fff" : COLORS.inkSoft }}>{weekday}</span>
+                  <span className="text-sm font-medium" style={{ color: active ? "#fff" : COLORS.ink }}>{num}</span>
+                  <div className="flex gap-0.5 mt-1">
+                    {cats.slice(0, 3).map((c) => (
+                      <span key={c} style={{ width: 4, height: 4, borderRadius: "50%", background: active ? "#fff" : CATEGORY_COLORS[c] }} />
+                    ))}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-between items-center mb-3">
+            <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-xl font-semibold">
+              {dateTitle(selectedDate)}
+            </h2>
+            <button
+              onClick={() => setShowAddLog(true)}
+              className="flex items-center gap-1 text-sm font-medium rounded-full px-3 py-1.5"
+              style={{ background: COLORS.header, color: "#fff" }}
+            >
+              <Plus size={14} /> Toevoegen
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {logs
+              .filter((e) => e.date === selectedDate)
+              .sort((a, b) => a.time.localeCompare(b.time))
+              .map((entry) => {
+                const food = FOODS.find((f) => f.id === entry.foodId);
+                if (!food) return null;
+                const reactionInfo = REACTIONS.find((r) => r.key === entry.reaction);
+                const ReactionIcon = reactionInfo?.icon;
+                return (
+                  <div
+                    key={entry.id}
+                    className="flex items-center gap-3 rounded-xl p-3"
+                    style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}` }}
+                  >
+                    <button
+                      onClick={() => {
+                        setSelectedLogEntry(entry);
+                        setNoteDraft(entry.note || "");
+                      }}
+                      className="flex items-center gap-3 flex-1 text-left"
+                    >
+                      <span
+                        className="flex-shrink-0"
+                        style={{ width: 18, height: 18, background: CATEGORY_COLORS[food.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%" }}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{food.name}</p>
+                        <p className="text-xs" style={{ color: COLORS.inkSoft }}>
+                          {entry.time}{entry.note ? " · heeft notitie" : ""}
+                        </p>
+                      </div>
+                      {ReactionIcon && <ReactionIcon size={16} style={{ color: reactionInfo.color, flexShrink: 0 }} />}
+                    </button>
+                    <button onClick={() => removeLogEntry(entry.id)}>
+                      <Trash2 size={15} style={{ color: COLORS.inkSoft }} />
+                    </button>
+                  </div>
+                );
+              })}
+            {logs.filter((e) => e.date === selectedDate).length === 0 && (
+              <p className="text-sm text-center py-8" style={{ color: COLORS.inkSoft }}>
+                Nog niets gelogd op {dateTitle(selectedDate).toLowerCase()}.
+              </p>
+            )}
+          </div>
+
+          {weekFrequency(logs).length > 0 && (
+            <div className="mt-6 rounded-2xl p-4" style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}` }}>
+              <p className="text-xs uppercase tracking-wide mb-3" style={{ color: COLORS.inkSoft }}>Deze week vaakst gegeten</p>
+              <div className="space-y-2">
+                {weekFrequency(logs).map(({ foodId, count }) => {
+                  const food = FOODS.find((f) => f.id === foodId);
+                  if (!food) return null;
+                  const max = weekFrequency(logs)[0].count;
+                  return (
+                    <div key={foodId} className="flex items-center gap-2">
+                      <span className="text-xs w-24 flex-shrink-0 truncate">{food.name}</span>
+                      <div className="flex-1 h-2 rounded-full" style={{ background: COLORS.bg }}>
+                        <div
+                          className="h-2 rounded-full"
+                          style={{ width: `${(count / max) * 100}%`, background: CATEGORY_COLORS[food.cat] }}
+                        />
+                      </div>
+                      <span className="text-xs flex-shrink-0" style={{ color: COLORS.inkSoft }}>{count}×</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+        )}
+
+        {view === "recipes" && (
+        <div>
+          <div className="flex gap-1 p-1 rounded-full mb-4" style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}` }}>
+            {[
+              { key: "list", label: "Recepten" },
+              { key: "plan", label: "Weekplan" },
+              { key: "pantry", label: "Voorraad" },
+              { key: "allergens", label: "Allergenen" },
+            ].map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setRecipeSubView(t.key)}
+                className="flex-1 text-xs font-medium py-1.5 rounded-full transition"
+                style={{
+                  background: recipeSubView === t.key ? COLORS.header : "transparent",
+                  color: recipeSubView === t.key ? "#fff" : COLORS.inkSoft,
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {recipeSubView === "list" && (
+            <div className="space-y-2">
+              <button
+                onClick={() => setPantryOnly((v) => !v)}
+                className="flex items-center gap-2 rounded-full px-3 py-1.5 mb-1 text-xs font-medium"
+                style={{
+                  background: pantryOnly ? CATEGORY_COLORS.Groente : COLORS.surface,
+                  color: pantryOnly ? "#fff" : COLORS.inkSoft,
+                  border: `1px solid ${pantryOnly ? CATEGORY_COLORS.Groente : COLORS.line}`,
+                }}
+              >
+                <Package size={13} /> Enkel wat ik in huis heb
+              </button>
+              {RECIPES.slice()
+                .filter((r) => !pantryOnly || recipePantryReady(r, pantry))
+                .sort((a, b) => recipeAgeMin(a) - recipeAgeMin(b))
+                .map((r) => {
+                  const minAge = recipeAgeMin(r);
+                  const available = minAge <= ageSlider;
+                  const allKnown = r.foodIds.every((id) => tried.includes(id));
+                  const inPantry = recipePantryReady(r, pantry);
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => setSelectedRecipe(r)}
+                      className="w-full rounded-2xl p-3 text-left flex items-center gap-3"
+                      style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}`, opacity: available ? 1 : 0.55 }}
+                    >
+                      <div className="flex -space-x-1.5 flex-shrink-0">
+                        {r.foodIds.slice(0, 3).map((id) => {
+                          const f = FOODS.find((ff) => ff.id === id);
+                          return (
+                            <span
+                              key={id}
+                              style={{ width: 18, height: 18, background: CATEGORY_COLORS[f?.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%", border: `1.5px solid ${COLORS.surface}` }}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium leading-tight">{r.name}</p>
+                        <p className="text-xs mt-0.5" style={{ color: available ? COLORS.inkSoft : COLORS.warn }}>
+                          {r.mealType} · {available ? "geschikt nu" : `vanaf ${ageLabel(minAge)}`}
+                        </p>
+                      </div>
+                      {inPantry && <Package size={15} style={{ color: CATEGORY_COLORS.Groente, flexShrink: 0 }} />}
+                      {allKnown && <Check size={16} style={{ color: CATEGORY_COLORS.Groente, flexShrink: 0 }} />}
+                      {!available && <Lock size={13} style={{ color: COLORS.inkSoft, flexShrink: 0 }} />}
+                    </button>
+                  );
+                })}
+            </div>
+          )}
+
+          {recipeSubView === "plan" && (
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowShoppingList(true)}
+                className="flex items-center gap-2 rounded-full px-3 py-1.5 mb-1 text-xs font-medium"
+                style={{ background: COLORS.header, color: "#fff" }}
+              >
+                <ShoppingCart size={13} /> Boodschappenlijst
+              </button>
+              {currentWeekDays().map((iso) => (
+                <div key={iso} className="rounded-2xl p-3" style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}` }}>
+                  <p className="text-xs font-medium mb-2" style={{ color: COLORS.header }}>{dateTitle(iso)}</p>
+                  <div className="space-y-1.5">
+                    {MEAL_TYPES.map((mt) => {
+                      const recipeId = weekPlan[`${iso}-${mt}`];
+                      const recipe = RECIPES.find((r) => r.id === recipeId);
+                      return (
+                        <button
+                          key={mt}
+                          onClick={() => setPlanPicker({ date: iso, mealType: mt })}
+                          className="w-full flex items-center justify-between rounded-xl px-3 py-2"
+                          style={{ background: COLORS.bg }}
+                        >
+                          <span className="text-xs" style={{ color: COLORS.inkSoft }}>{mt}</span>
+                          <span className="text-xs font-medium" style={{ color: recipe ? COLORS.header : COLORS.inkSoft }}>
+                            {recipe ? recipe.name : "+ kies recept"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {recipeSubView === "pantry" && (
+            <div>
+              <div className="relative mb-3">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: COLORS.inkSoft }} />
+                <input
+                  value={pantrySearch}
+                  onChange={(e) => setPantrySearch(e.target.value)}
+                  placeholder="Zoek een ingrediënt..."
+                  className="w-full rounded-xl py-2.5 pl-9 pr-3 text-sm outline-none"
+                  style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+                />
+              </div>
+              <p className="text-xs mb-3" style={{ color: COLORS.inkSoft }}>
+                {pantry.length} van {FOODS.length} in huis — tik om aan of af te vinken.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {FOODS.filter((f) => f.name.toLowerCase().includes(pantrySearch.toLowerCase())).map((f) => {
+                  const has = pantry.includes(f.id);
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => togglePantry(f.id)}
+                      className="flex items-center gap-2 rounded-xl p-2.5 text-left"
+                      style={{
+                        background: has ? CATEGORY_COLORS[f.cat] : COLORS.surface,
+                        border: `1px solid ${has ? CATEGORY_COLORS[f.cat] : COLORS.line}`,
+                      }}
+                    >
+                      <span
+                        className="flex-shrink-0"
+                        style={{ width: 14, height: 14, background: has ? "#fff" : CATEGORY_COLORS[f.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%", opacity: has ? 0.9 : 1 }}
+                      />
+                      <span className="text-xs font-medium" style={{ color: has ? "#fff" : COLORS.ink }}>{f.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {recipeSubView === "allergens" && (
+            <div className="space-y-2">
+              <p className="text-xs mb-2" style={{ color: COLORS.inkSoft }}>
+                De grote allergenen uit dit menu — introduceer ze bewust en één voor één, en overleg bij eczeem of familiale allergie met je kinderarts.
+              </p>
+              {ALLERGENS.map((a) => {
+                const food = FOODS.find((f) => f.id === a.foodId);
+                const introduced = tried.includes(a.foodId);
+                const firstLog = logs.filter((e) => e.foodId === a.foodId).sort((x, y) => (x.date + x.time).localeCompare(y.date + y.time))[0];
+                return (
+                  <button
+                    key={a.key}
+                    onClick={() => food && setSelected(food)}
+                    className="w-full flex items-center gap-3 rounded-2xl p-3 text-left"
+                    style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}` }}
+                  >
+                    <span
+                      className="flex-shrink-0 rounded-full flex items-center justify-center"
+                      style={{ width: 28, height: 28, background: introduced ? CATEGORY_COLORS.Groente : COLORS.warnBg }}
+                    >
+                      {introduced ? <Check size={14} color="#fff" /> : <ShieldAlert size={14} style={{ color: COLORS.warn }} />}
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{a.label}</p>
+                      <p className="text-xs" style={{ color: COLORS.inkSoft }}>
+                        {introduced ? `Geïntroduceerd${firstLog ? ` op ${dateTitle(firstLog.date).toLowerCase()}` : ""}` : "Nog niet geïntroduceerd"}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        )}
+
+        <p className="text-xs mt-8 leading-relaxed" style={{ color: COLORS.inkSoft }}>
+          Algemene richtlijn, geen medisch advies. Bij twijfel — zeker rond allergenen of verstikkingsgevaar — overleg met je kinderarts of Kind en Gezin.
+        </p>
+
+        <button
+          onClick={() => setShowExport(true)}
+          className="flex items-center gap-2 text-xs font-medium mt-4"
+          style={{ color: COLORS.inkSoft }}
+        >
+          <Download size={13} /> Exporteer mijn gegevens
+        </button>
+
+        <p className="text-xs mt-2" style={{ color: COLORS.inkSoft }}>
+          {supabaseEnabled ? "🔄 Gesynchroniseerd tussen toestellen" : "📱 Enkel lokaal opgeslagen op dit toestel"}
+        </p>
+      </div>
+
+      {selected && (
+        <div
+          className="fixed inset-0 flex items-end justify-center z-50"
+          style={{ background: "rgba(51,42,49,0.4)" }}
+          onClick={() => setSelected(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto"
+            style={{ background: COLORS.surface }}
+          >
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <span
+                  className="inline-block rounded-full mb-2"
+                  style={{ width: 30, height: 30, background: CATEGORY_COLORS[selected.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%" }}
+                />
+                <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-2xl font-semibold">{selected.name}</h2>
+                <p className="text-xs mt-1" style={{ color: COLORS.inkSoft }}>{selected.cat} · vanaf {ageLabel(selected.minAge)}</p>
+              </div>
+              <button onClick={() => setSelected(null)}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
+            </div>
+
+            {selected.allergen && (
+              <div className="rounded-xl p-3 mb-3 flex gap-2 items-start" style={{ background: COLORS.warnBg }}>
+                <AlertTriangle size={16} style={{ color: COLORS.warn, flexShrink: 0, marginTop: 2 }} />
+                <p className="text-sm" style={{ color: COLORS.warn }}>{selected.note || "Mogelijk allergeen — introduceer met aandacht."}</p>
+              </div>
+            )}
+            {selected.choking && (
+              <div className="rounded-xl p-3 mb-3 flex gap-2 items-start" style={{ background: COLORS.warnBg }}>
+                <AlertTriangle size={16} style={{ color: COLORS.warn, flexShrink: 0, marginTop: 2 }} />
+                <p className="text-sm" style={{ color: COLORS.warn }}>{selected.choking}</p>
+              </div>
+            )}
+            {!selected.allergen && selected.note && (
+              <p className="text-sm mb-3" style={{ color: COLORS.inkSoft }}>{selected.note}</p>
+            )}
+
+            <p className="text-xs uppercase tracking-wide mb-2 mt-4" style={{ color: COLORS.inkSoft }}>Bereiding per leeftijd</p>
+            <div className="space-y-2 mb-5">
+              {Object.entries(selected.prep).map(([age, text]) => (
+                <div key={age} className="flex gap-3">
+                  <span
+                    className="text-xs font-medium rounded-full px-2 py-0.5 h-fit"
+                    style={{ background: COLORS.bg, color: COLORS.header }}
+                  >
+                    {ageLabel(Number(age))}
+                  </span>
+                  <p className="text-sm flex-1">{text}</p>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => toggleTried(selected.id)}
+              className="w-full rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2"
+              style={{
+                background: tried.includes(selected.id) ? CATEGORY_COLORS.Groente : COLORS.bg,
+                color: tried.includes(selected.id) ? "#fff" : COLORS.ink,
+              }}
+            >
+              <Check size={16} />
+              {tried.includes(selected.id) ? "Al geprobeerd" : "Markeer als geprobeerd"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showAddLog && (
+        <div
+          className="fixed inset-0 flex items-end justify-center z-50"
+          style={{ background: "rgba(51,42,49,0.4)" }}
+          onClick={() => setShowAddLog(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-t-3xl p-5 pb-8 max-h-[75vh] overflow-y-auto"
+            style={{ background: COLORS.surface }}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-xl font-semibold">
+                Toevoegen — {dateTitle(selectedDate).toLowerCase()}
+              </h2>
+              <button onClick={() => setShowAddLog(false)}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
+            </div>
+
+            <div className="relative mb-3">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: COLORS.inkSoft }} />
+              <input
+                value={logSearch}
+                onChange={(e) => setLogSearch(e.target.value)}
+                placeholder="Zoek een voedingsmiddel..."
+                autoFocus
+                className="w-full rounded-xl py-2.5 pl-9 pr-3 text-sm outline-none"
+                style={{ background: COLORS.bg, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              {FOODS.filter((f) => f.name.toLowerCase().includes(logSearch.toLowerCase())).map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => addLogEntry(f.id)}
+                  className="w-full flex items-center gap-3 rounded-xl p-2.5 text-left"
+                  style={{ background: COLORS.bg }}
+                >
+                  <span
+                    className="flex-shrink-0"
+                    style={{ width: 18, height: 18, background: CATEGORY_COLORS[f.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%" }}
+                  />
+                  <span className="text-sm flex-1">{f.name}</span>
+                  <Plus size={16} style={{ color: COLORS.inkSoft }} />
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowAddLog(false)}
+              className="w-full rounded-xl py-3 text-sm font-medium mt-4"
+              style={{ background: COLORS.header, color: "#fff" }}
+            >
+              Klaar
+            </button>
+          </div>
+        </div>
+      )}
+      {selectedRecipe && (
+        <div
+          className="fixed inset-0 flex items-end justify-center z-50"
+          style={{ background: "rgba(51,42,49,0.4)" }}
+          onClick={() => setSelectedRecipe(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto"
+            style={{ background: COLORS.surface }}
+          >
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <p className="text-xs mb-1" style={{ color: COLORS.inkSoft }}>{selectedRecipe.mealType} · vanaf {ageLabel(recipeAgeMin(selectedRecipe))}</p>
+                <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-2xl font-semibold">{selectedRecipe.name}</h2>
+              </div>
+              <button onClick={() => setSelectedRecipe(null)}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
+            </div>
+
+            <p className="text-xs uppercase tracking-wide mb-2 mt-4" style={{ color: COLORS.inkSoft }}>Ingrediënten</p>
+            <div className="flex flex-wrap gap-2 mb-5">
+              {selectedRecipe.foodIds.map((id) => {
+                const f = FOODS.find((ff) => ff.id === id);
+                const known = tried.includes(id);
+                return (
+                  <span
+                    key={id}
+                    className="flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1"
+                    style={{ background: COLORS.bg }}
+                  >
+                    <span style={{ width: 14, height: 14, background: CATEGORY_COLORS[f?.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%" }} />
+                    <span className="text-xs">{f?.name}</span>
+                    {known && <Check size={12} style={{ color: CATEGORY_COLORS.Groente }} />}
+                  </span>
+                );
+              })}
+            </div>
+
+            <p className="text-xs uppercase tracking-wide mb-2" style={{ color: COLORS.inkSoft }}>Bereiding</p>
+            <div className="space-y-2">
+              {selectedRecipe.steps.map((step, i) => (
+                <div key={i} className="flex gap-3">
+                  <span
+                    className="text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0"
+                    style={{ background: COLORS.bg, color: COLORS.header }}
+                  >
+                    {i + 1}
+                  </span>
+                  <p className="text-sm flex-1">{step}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {planPicker && (
+        <div
+          className="fixed inset-0 flex items-end justify-center z-50"
+          style={{ background: "rgba(51,42,49,0.4)" }}
+          onClick={() => setPlanPicker(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-t-3xl p-5 pb-8 max-h-[75vh] overflow-y-auto"
+            style={{ background: COLORS.surface }}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-xl font-semibold">
+                {planPicker.mealType} — {dateTitle(planPicker.date).toLowerCase()}
+              </h2>
+              <button onClick={() => setPlanPicker(null)}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
+            </div>
+
+            {weekPlan[`${planPicker.date}-${planPicker.mealType}`] && (
+              <button
+                onClick={() => clearPlan(planPicker.date, planPicker.mealType)}
+                className="w-full text-sm font-medium rounded-xl py-2.5 mb-3"
+                style={{ background: COLORS.warnBg, color: COLORS.warn }}
+              >
+                Leegmaken
+              </button>
+            )}
+
+            <div className="space-y-1.5">
+              {RECIPES.slice()
+                .sort((a, b) => {
+                  const pantryDiff = (recipePantryReady(b, pantry) ? 1 : 0) - (recipePantryReady(a, pantry) ? 1 : 0);
+                  if (pantryDiff !== 0) return pantryDiff;
+                  return (a.mealType === planPicker.mealType ? -1 : 1) - (b.mealType === planPicker.mealType ? -1 : 1);
+                })
+                .map((r) => {
+                  const inPantry = recipePantryReady(r, pantry);
+                  return (
+                  <button
+                    key={r.id}
+                    onClick={() => assignPlan(planPicker.date, planPicker.mealType, r.id)}
+                    className="w-full flex items-center gap-3 rounded-xl p-2.5 text-left"
+                    style={{ background: COLORS.bg }}
+                  >
+                    <div className="flex -space-x-1.5 flex-shrink-0">
+                      {r.foodIds.slice(0, 3).map((id) => {
+                        const f = FOODS.find((ff) => ff.id === id);
+                        return (
+                          <span
+                            key={id}
+                            style={{ width: 14, height: 14, background: CATEGORY_COLORS[f?.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%", border: `1.5px solid ${COLORS.bg}` }}
+                          />
+                        );
+                      })}
+                    </div>
+                    <span className="text-sm flex-1">{r.name}</span>
+                    {inPantry && <Package size={14} style={{ color: CATEGORY_COLORS.Groente }} />}
+                    <span className="text-xs" style={{ color: COLORS.inkSoft }}>{r.mealType}</span>
+                  </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedLogEntry && (
+        <LogEntryModal
+          entry={selectedLogEntry}
+          food={FOODS.find((f) => f.id === selectedLogEntry.foodId)}
+          noteDraft={noteDraft}
+          setNoteDraft={setNoteDraft}
+          tried={tried}
+          onReaction={(reaction) => {
+            updateLogEntry(selectedLogEntry.id, { reaction });
+            setSelectedLogEntry((e) => ({ ...e, reaction }));
+          }}
+          onSave={() => {
+            updateLogEntry(selectedLogEntry.id, { note: noteDraft });
+            setSelectedLogEntry(null);
+          }}
+          onClose={() => setSelectedLogEntry(null)}
+        />
+      )}
+
+      {showShoppingList && (
+        <div
+          className="fixed inset-0 flex items-end justify-center z-50"
+          style={{ background: "rgba(51,42,49,0.4)" }}
+          onClick={() => setShowShoppingList(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-t-3xl p-5 pb-8 max-h-[75vh] overflow-y-auto"
+            style={{ background: COLORS.surface }}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-xl font-semibold">Boodschappenlijst</h2>
+              <button onClick={() => setShowShoppingList(false)}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: COLORS.inkSoft }}>
+              Op basis van je weekplan, min wat je al in huis hebt. Vink af zodra je het kocht — het wordt dan meteen toegevoegd aan je voorraad.
+            </p>
+            {(() => {
+              const neededIds = [
+                ...new Set(
+                  Object.values(weekPlan)
+                    .map((rid) => RECIPES.find((r) => r.id === rid))
+                    .filter(Boolean)
+                    .flatMap((r) => r.foodIds)
+                ),
+              ].filter((id) => !pantry.includes(id));
+              if (neededIds.length === 0) {
+                return (
+                  <p className="text-sm text-center py-8" style={{ color: COLORS.inkSoft }}>
+                    Niets nodig — je hebt alles al in huis, of je weekplan is nog leeg.
+                  </p>
+                );
+              }
+              return (
+                <div className="space-y-1.5">
+                  {neededIds.map((id) => {
+                    const f = FOODS.find((ff) => ff.id === id);
+                    if (!f) return null;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => togglePantry(id)}
+                        className="w-full flex items-center gap-3 rounded-xl p-2.5 text-left"
+                        style={{ background: COLORS.bg }}
+                      >
+                        <span
+                          className="flex-shrink-0"
+                          style={{ width: 16, height: 16, background: CATEGORY_COLORS[f.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%" }}
+                        />
+                        <span className="text-sm flex-1">{f.name}</span>
+                        <Check size={16} style={{ color: COLORS.inkSoft }} />
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {showExport && (
+        <div
+          className="fixed inset-0 flex items-end justify-center z-50"
+          style={{ background: "rgba(51,42,49,0.4)" }}
+          onClick={() => { setShowExport(false); setCopyLabel("Kopieer"); }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-t-3xl p-5 pb-8 max-h-[75vh] overflow-y-auto"
+            style={{ background: COLORS.surface }}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-xl font-semibold">Exporteer gegevens</h2>
+              <button onClick={() => { setShowExport(false); setCopyLabel("Kopieer"); }}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: COLORS.inkSoft }}>
+              Kopieer deze tekst en bewaar ze ergens veilig (bv. Notities of e-mail) als back-up.
+            </p>
+            <textarea
+              readOnly
+              value={JSON.stringify({ tried, logs, weekPlan, pantry }, null, 2)}
+              rows={10}
+              className="w-full rounded-xl p-3 text-xs outline-none mb-3 font-mono"
+              style={{ background: COLORS.bg, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+            />
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(JSON.stringify({ tried, logs, weekPlan, pantry }, null, 2));
+                  setCopyLabel("Gekopieerd!");
+                } catch (e) {
+                  setCopyLabel("Kopiëren mislukt — selecteer manueel");
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium"
+              style={{ background: COLORS.header, color: "#fff" }}
+            >
+              <Copy size={15} /> {copyLabel}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LogEntryModal({ entry, food, noteDraft, setNoteDraft, onSave, onClose, onReaction, tried }) {
+  return (
+    <div
+      className="fixed inset-0 flex items-end justify-center z-50"
+      style={{ background: "rgba(51,42,49,0.4)" }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-t-3xl p-5 pb-8 max-h-[75vh] overflow-y-auto"
+        style={{ background: COLORS.surface }}
+      >
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-2xl font-semibold">{food?.name}</h2>
+            <p className="text-xs mt-1" style={{ color: COLORS.inkSoft }}>{entry.time}</p>
+          </div>
+          <button onClick={onClose}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
+        </div>
+
+        <p className="text-xs uppercase tracking-wide mb-2" style={{ color: COLORS.inkSoft }}>Reactie</p>
+        <div className="flex gap-2 mb-4">
+          {REACTIONS.map((r) => {
+            const Icon = r.icon;
+            const active = entry.reaction === r.key;
+            return (
+              <button
+                key={r.key}
+                onClick={() => onReaction(active ? null : r.key)}
+                className="flex-1 flex flex-col items-center gap-1 rounded-xl py-2.5"
+                style={{ background: active ? r.color : COLORS.bg, color: active ? "#fff" : COLORS.inkSoft }}
+              >
+                <Icon size={18} />
+                <span className="text-xs font-medium">{r.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="text-xs uppercase tracking-wide mb-2" style={{ color: COLORS.inkSoft }}>Notitie</p>
+        <textarea
+          value={noteDraft}
+          onChange={(e) => setNoteDraft(e.target.value)}
+          placeholder="Bv. huiduitslag, veel gegeten, spuugde het uit..."
+          rows={3}
+          className="w-full rounded-xl p-3 text-sm outline-none mb-4"
+          style={{ background: COLORS.bg, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+        />
+
+        <button
+          onClick={onSave}
+          className="w-full rounded-xl py-3 text-sm font-medium"
+          style={{ background: COLORS.header, color: "#fff" }}
+        >
+          Opslaan
+        </button>
+      </div>
+    </div>
+  );
+}
