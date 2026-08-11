@@ -143,6 +143,18 @@ function weekFrequency(logs) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 }
+// jsonb bewaart object-sleutels in een andere volgorde dan JS — sorteer ze
+// zodat lokale data en data uit Supabase dezelfde string opleveren.
+function stableStringify(obj) {
+  return JSON.stringify(obj, (key, value) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.keys(value).sort().reduce((acc, k) => {
+          acc[k] = value[k];
+          return acc;
+        }, {})
+      : value
+  );
+}
 function currentWeekDays() {
   const now = new Date();
   const day = now.getDay();
@@ -192,6 +204,11 @@ export default function App() {
 
   const lastSyncedRef = useRef(null);
   const saveTimeoutRef = useRef(null);
+  // actuele sliderwaarde voor de realtime-handler (die heeft een lege deps-array)
+  const ageSliderRef = useRef(ageSlider);
+  useEffect(() => {
+    ageSliderRef.current = ageSlider;
+  }, [ageSlider]);
 
   useEffect(() => {
     (async () => {
@@ -205,11 +222,11 @@ export default function App() {
             setWeekPlan(d.weekPlan || {});
             setPantry(d.pantry || []);
             setAgeSlider(d.ageSlider || 5);
-            lastSyncedRef.current = JSON.stringify(d);
+            lastSyncedRef.current = stableStringify(d);
           } else {
             const initial = { tried: [], logs: [], weekPlan: {}, pantry: [], ageSlider: 5 };
             await supabase.from("isaac_data").upsert({ id: "isaac", data: initial });
-            lastSyncedRef.current = JSON.stringify(initial);
+            lastSyncedRef.current = stableStringify(initial);
           }
         } catch (e) {
           // if this fails, the app still works locally for this session
@@ -236,7 +253,7 @@ export default function App() {
   useEffect(() => {
     if (!loaded) return;
     const current = { tried, logs, weekPlan, pantry, ageSlider };
-    const currentStr = JSON.stringify(current);
+    const currentStr = stableStringify(current);
     if (currentStr === lastSyncedRef.current) return;
 
     if (!supabaseEnabled) {
@@ -270,14 +287,23 @@ export default function App() {
         (payload) => {
           const incoming = payload.new?.data;
           if (!incoming) return;
-          const incomingStr = JSON.stringify(incoming);
-          if (incomingStr === lastSyncedRef.current) return;
-          setTried(incoming.tried || []);
-          setLogs(incoming.logs || []);
-          setWeekPlan(incoming.weekPlan || {});
-          setPantry(incoming.pantry || []);
-          setAgeSlider(incoming.ageSlider || 5);
-          lastSyncedRef.current = incomingStr;
+          // Een client met een oude app-versie stuurt data zonder ageSlider mee;
+          // behoud dan de lokale waarde in plaats van te resetten.
+          const merged = {
+            tried: incoming.tried || [],
+            logs: incoming.logs || [],
+            weekPlan: incoming.weekPlan || {},
+            pantry: incoming.pantry || [],
+            ageSlider: incoming.ageSlider ?? ageSliderRef.current,
+          };
+          const mergedStr = stableStringify(merged);
+          if (mergedStr === lastSyncedRef.current) return;
+          setTried(merged.tried);
+          setLogs(merged.logs);
+          setWeekPlan(merged.weekPlan);
+          setPantry(merged.pantry);
+          setAgeSlider(merged.ageSlider);
+          lastSyncedRef.current = mergedStr;
         }
       )
       .subscribe();
