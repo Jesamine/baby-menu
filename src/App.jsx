@@ -462,14 +462,26 @@ export default function App() {
     if (!supabaseEnabled) return;
     setPhotoBusy(true);
     try {
-      const blob = await compressImage(file);
-      const path = `${entry.id}.jpg`;
-      const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+      let blob;
+      let ext = "jpg";
+      let type = "image/jpeg";
+      try {
+        blob = await compressImage(file);
+        if (!blob) throw new Error("compressie mislukt");
+      } catch {
+        // Formaten die de browser niet kan decoderen (bv. HEIC buiten
+        // Safari) uploaden we onverkleind als origineel.
+        blob = file;
+        type = file.type || "application/octet-stream";
+        ext = (file.name.split(".").pop() || "bin").toLowerCase();
+      }
+      const path = `${entry.id}.${ext}`;
+      const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, { upsert: true, contentType: type });
       if (error) throw error;
       updateLogEntry(entry.id, { photo: path });
       setSelectedLogEntry((e) => ({ ...e, photo: path }));
     } catch (e) {
-      window.alert("Foto uploaden lukte niet. Bestaat de 'isaac-photos' bucket al in Supabase? Zie de README voor de eenmalige setup.");
+      window.alert(`Foto uploaden lukte niet: ${e?.message || e}`);
     } finally {
       setPhotoBusy(false);
     }
