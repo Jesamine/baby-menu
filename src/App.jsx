@@ -194,6 +194,11 @@ const AMOUNTS = [
   { key: "alles", label: "(Bijna) alles" },
 ];
 
+// Oudere entries hebben één foodId, nieuwere een foodIds-array.
+function entryFoodIds(e) {
+  return e.foodIds || (e.foodId ? [e.foodId] : []);
+}
+
 function guessMeal(time) {
   const h = Number(time.slice(0, 2));
   if (h < 10) return "Ontbijt";
@@ -231,7 +236,9 @@ function weekFrequency(logs) {
   const counts = {};
   logs.forEach((e) => {
     if (!days.includes(e.date)) return;
-    counts[e.foodId] = (counts[e.foodId] || 0) + 1;
+    entryFoodIds(e).forEach((id) => {
+      counts[id] = (counts[id] || 0) + 1;
+    });
   });
   return Object.entries(counts)
     .map(([foodId, count]) => ({ foodId, count }))
@@ -277,6 +284,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [showAddLog, setShowAddLog] = useState(false);
   const [logSearch, setLogSearch] = useState("");
+  const [logSelection, setLogSelection] = useState([]);
   const [recipeSubView, setRecipeSubView] = useState("list");
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [weekPlan, setWeekPlan] = useState({});
@@ -427,11 +435,12 @@ export default function App() {
     setTried((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
   };
 
-  const addLogEntry = (foodId) => {
+  const addLogEntry = (foodIds) => {
+    if (!foodIds.length) return;
     const time = nowTimeString();
-    const entry = { id: `${Date.now()}-${foodId}`, foodId, date: selectedDate, time, meal: guessMeal(time), amount: null, reaction: null, note: "", photo: null };
+    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, foodIds, date: selectedDate, time, meal: guessMeal(time), amount: null, reaction: null, note: "", photo: null };
     setLogs((l) => [...l, entry]);
-    setTried((t) => (t.includes(foodId) ? t : [...t, foodId]));
+    setTried((t) => [...new Set([...t, ...foodIds])]);
   };
 
   const updateLogEntry = (id, updates) => {
@@ -517,7 +526,18 @@ export default function App() {
     setCustomFoods((c) => c.filter((f) => f.id !== id));
     setTried((t) => t.filter((x) => x !== id));
     setPantry((p) => p.filter((x) => x !== id));
-    setLogs((l) => l.filter((e) => e.foodId !== id));
+    setLogs((l) =>
+      l
+        .map((e) => {
+          const ids = entryFoodIds(e);
+          if (!ids.includes(id)) return e;
+          const rest = ids.filter((x) => x !== id);
+          if (!rest.length) return null;
+          const { foodId, ...clean } = e;
+          return { ...clean, foodIds: rest };
+        })
+        .filter(Boolean)
+    );
     setSelected(null);
   };
 
@@ -664,7 +684,7 @@ export default function App() {
           <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
             {last7Days().map((iso) => {
               const dayEntries = logs.filter((e) => e.date === iso);
-              const cats = [...new Set(dayEntries.map((e) => allFoods.find((f) => f.id === e.foodId)?.cat))].filter(Boolean);
+              const cats = [...new Set(dayEntries.flatMap((e) => entryFoodIds(e).map((id) => allFoods.find((f) => f.id === id)?.cat)))].filter(Boolean);
               const { weekday, num } = dayLabel(iso);
               const active = iso === selectedDate;
               return (
@@ -696,7 +716,11 @@ export default function App() {
               {dateTitle(selectedDate)}
             </h2>
             <button
-              onClick={() => setShowAddLog(true)}
+              onClick={() => {
+                setLogSelection([]);
+                setLogSearch("");
+                setShowAddLog(true);
+              }}
               className="flex items-center gap-1 text-sm font-medium rounded-full px-3 py-1.5"
               style={{ background: COLORS.header, color: "#fff" }}
             >
@@ -709,8 +733,8 @@ export default function App() {
               .filter((e) => e.date === selectedDate)
               .sort((a, b) => a.time.localeCompare(b.time))
               .map((entry) => {
-                const food = allFoods.find((f) => f.id === entry.foodId);
-                if (!food) return null;
+                const entryFoods = entryFoodIds(entry).map((id) => allFoods.find((f) => f.id === id)).filter(Boolean);
+                if (!entryFoods.length) return null;
                 const reactionInfo = REACTIONS.find((r) => r.key === entry.reaction);
                 const ReactionIcon = reactionInfo?.icon;
                 return (
@@ -726,12 +750,16 @@ export default function App() {
                       }}
                       className="flex items-center gap-3 flex-1 text-left"
                     >
-                      <span
-                        className="flex-shrink-0"
-                        style={{ width: 18, height: 18, background: CATEGORY_COLORS[food.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%" }}
-                      />
+                      <div className="flex -space-x-1.5 flex-shrink-0">
+                        {entryFoods.slice(0, 3).map((f) => (
+                          <span
+                            key={f.id}
+                            style={{ width: 18, height: 18, background: CATEGORY_COLORS[f.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%", border: `1.5px solid ${COLORS.surface}` }}
+                          />
+                        ))}
+                      </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{food.name}</p>
+                        <p className="text-sm font-medium">{entryFoods.map((f) => f.name).join(" + ")}</p>
                         <p className="text-xs" style={{ color: COLORS.inkSoft }}>
                           {entry.meal ? `${entry.meal} · ` : ""}{entry.time}
                           {entry.amount ? ` · ${AMOUNTS.find((a) => a.key === entry.amount)?.label.toLowerCase()} gegeten` : ""}
@@ -946,7 +974,7 @@ export default function App() {
               {ALLERGENS.map((a) => {
                 const food = allFoods.find((f) => f.id === a.foodId);
                 const introduced = tried.includes(a.foodId);
-                const firstLog = logs.filter((e) => e.foodId === a.foodId).sort((x, y) => (x.date + x.time).localeCompare(y.date + y.time))[0];
+                const firstLog = logs.filter((e) => entryFoodIds(e).includes(a.foodId)).sort((x, y) => (x.date + x.time).localeCompare(y.date + y.time))[0];
                 return (
                   <button
                     key={a.key}
@@ -1213,29 +1241,41 @@ export default function App() {
             </div>
 
             <div className="space-y-1.5">
-              {allFoods.filter((f) => f.name.toLowerCase().includes(logSearch.toLowerCase())).map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => addLogEntry(f.id)}
-                  className="w-full flex items-center gap-3 rounded-xl p-2.5 text-left"
-                  style={{ background: COLORS.bg }}
-                >
-                  <span
-                    className="flex-shrink-0"
-                    style={{ width: 18, height: 18, background: CATEGORY_COLORS[f.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%" }}
-                  />
-                  <span className="text-sm flex-1">{f.name}</span>
-                  <Plus size={16} style={{ color: COLORS.inkSoft }} />
-                </button>
-              ))}
+              {allFoods.filter((f) => f.name.toLowerCase().includes(logSearch.toLowerCase())).map((f) => {
+                const picked = logSelection.includes(f.id);
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setLogSelection((s) => (picked ? s.filter((x) => x !== f.id) : [...s, f.id]))}
+                    className="w-full flex items-center gap-3 rounded-xl p-2.5 text-left"
+                    style={{ background: COLORS.bg, border: `1px solid ${picked ? COLORS.header : "transparent"}` }}
+                  >
+                    <span
+                      className="flex-shrink-0"
+                      style={{ width: 18, height: 18, background: CATEGORY_COLORS[f.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%" }}
+                    />
+                    <span className="text-sm flex-1" style={{ fontWeight: picked ? 600 : 400 }}>{f.name}</span>
+                    {picked ? <Check size={16} style={{ color: COLORS.header }} /> : <Plus size={16} style={{ color: COLORS.inkSoft }} />}
+                  </button>
+                );
+              })}
             </div>
 
             <button
-              onClick={() => setShowAddLog(false)}
-              className="w-full rounded-xl py-3 text-sm font-medium mt-4"
+              onClick={() => {
+                if (logSelection.length) {
+                  addLogEntry(logSelection);
+                  setLogSelection([]);
+                  setLogSearch("");
+                }
+                setShowAddLog(false);
+              }}
+              className="w-full rounded-xl py-3 text-sm font-medium mt-4 sticky bottom-0"
               style={{ background: COLORS.header, color: "#fff" }}
             >
-              Klaar
+              {logSelection.length
+                ? `Voeg maaltijd toe (${logSelection.length} ${logSelection.length === 1 ? "item" : "items"})`
+                : "Klaar"}
             </button>
           </div>
         </div>
@@ -1365,7 +1405,7 @@ export default function App() {
       {selectedLogEntry && (
         <LogEntryModal
           entry={selectedLogEntry}
-          food={allFoods.find((f) => f.id === selectedLogEntry.foodId)}
+          foods={entryFoodIds(selectedLogEntry).map((id) => allFoods.find((f) => f.id === id)).filter(Boolean)}
           noteDraft={noteDraft}
           setNoteDraft={setNoteDraft}
           tried={tried}
@@ -1493,7 +1533,8 @@ export default function App() {
   );
 }
 
-function LogEntryModal({ entry, food, noteDraft, setNoteDraft, onSave, onClose, onUpdate, tried, photoUrl, photoBusy, onPhotoPick, onPhotoRemove }) {
+function LogEntryModal({ entry, foods, noteDraft, setNoteDraft, onSave, onClose, onUpdate, tried, photoUrl, photoBusy, onPhotoPick, onPhotoRemove }) {
+  const mealName = foods.map((f) => f.name).join(" + ");
   return (
     <div
       className="fixed inset-0 flex items-end justify-center z-50"
@@ -1507,7 +1548,7 @@ function LogEntryModal({ entry, food, noteDraft, setNoteDraft, onSave, onClose, 
       >
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-2xl font-semibold">{food?.name}</h2>
+            <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-2xl font-semibold">{mealName}</h2>
             <p className="text-xs mt-1" style={{ color: COLORS.inkSoft }}>{entry.time}</p>
           </div>
           <button onClick={onClose}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
@@ -1584,7 +1625,7 @@ function LogEntryModal({ entry, food, noteDraft, setNoteDraft, onSave, onClose, 
             <p className="text-xs uppercase tracking-wide mb-2" style={{ color: COLORS.inkSoft }}>Foto</p>
             {entry.photo ? (
               <div className="relative mb-4">
-                <img src={photoUrl(entry.photo)} alt={food?.name} className="w-full rounded-xl max-h-64 object-cover" />
+                <img src={photoUrl(entry.photo)} alt={mealName} className="w-full rounded-xl max-h-64 object-cover" />
                 <button
                   onClick={onPhotoRemove}
                   className="absolute top-2 right-2 rounded-full p-1.5"
