@@ -50,6 +50,48 @@ const FOODS = [
   { id: "yoghurt", name: "Volle natuuryoghurt", cat: "Zuivel", minAge: 6, prep: { 6: "Puur, zonder toegevoegde suiker." }, note: "Zuivel als voeding mag vanaf 6m; koemelk als drank pas vanaf 12m." },
   { id: "kaas", name: "Zachte kaas (gepasteuriseerd)", cat: "Zuivel", minAge: 6, prep: { 6: "In kleine geraspte of gesmolten stukjes." }, note: "Vermijd rauwmelkse/ongepasteuriseerde kaas." },
   { id: "honing", name: "Honing", cat: "Fruit", minAge: 12, prep: {}, choking: "Nooit vóór 12 maanden — risico op infant botulisme.", note: "Pas vanaf 12 maanden, ook niet verwerkt in gebak voor die leeftijd." },
+  { id: "bloemkool", name: "Bloemkool", cat: "Groente", minAge: 6, prep: { 6: "Gestoomd tot zacht, als puree.", 8: "Zachte roosjes als vingervoedsel." }, note: "" },
+  { id: "erwten", name: "Erwten", cat: "Groente", minAge: 6, prep: { 6: "Goed gaar en fijngeprakt of als puree." }, choking: "Rond en glad — altijd prakken of platdrukken, nooit los geven.", note: "" },
+  { id: "spinazie", name: "Spinazie", cat: "Groente", minAge: 6, prep: { 6: "Vers bereid, goed gaar en fijngehakt door puree." }, note: "Nitraatrijk — kleine porties, vers bereiden en restjes niet opnieuw opwarmen." },
+  { id: "pastinaak", name: "Pastinaak", cat: "Groente", minAge: 6, prep: { 6: "Gekookt en fijngeprakt.", 9: "In zachte, gegaarde blokjes." }, note: "" },
+  { id: "knolselder", name: "Knolselder", cat: "Groente", minAge: 6, prep: { 6: "Gekookt en fijngeprakt." }, note: "" },
+  { id: "prei", name: "Prei", cat: "Groente", minAge: 6, prep: { 6: "Enkel het wit, goed gaar en heel fijn gesneden door puree." }, note: "Vezelig — meng door puree zodat er geen slierten blijven." },
+  { id: "groene-boontjes", name: "Groene boontjes", cat: "Groente", minAge: 6, prep: { 6: "Goed gaar, draadjes verwijderd, fijngehakt of geprakt.", 9: "Zachte, gegaarde boontjes in stukjes." }, note: "" },
+  { id: "paprika", name: "Paprika", cat: "Groente", minAge: 6, prep: { 6: "Geroosterd of gestoomd, zonder vel, fijngeprakt.", 10: "Rauw in heel dunne reepjes." }, note: "Het vel laat moeilijk los — even roosteren maakt pellen makkelijk." },
+  { id: "komkommer", name: "Komkommer", cat: "Groente", minAge: 6, prep: { 6: "Geschild, in dikke sticks om op te sabbelen.", 9: "In dunne reepjes." }, note: "" },
+  { id: "tomaat", name: "Tomaat", cat: "Groente", minAge: 6, prep: { 6: "Zonder vel en pitjes, fijngeprakt.", 9: "Rijpe partjes zonder vel." }, choking: "Kerstomaatjes altijd in kwartjes snijden, nooit heel — zelfde risico als druiven.", note: "" },
+  { id: "aubergine", name: "Aubergine", cat: "Groente", minAge: 6, prep: { 6: "Goed gaar gestoofd en fijngeprakt." }, note: "" },
+  { id: "rode-biet", name: "Rode biet", cat: "Groente", minAge: 6, prep: { 6: "Gekookt en fijngeprakt." }, note: "Nitraatrijk — kleine porties. Niet schrikken: bietjes kunnen plas en luier roze kleuren." },
+  { id: "champignons", name: "Champignons", cat: "Groente", minAge: 8, prep: { 8: "Goed gaar gebakken en fijngesneden." }, note: "Enkel gekweekte champignons, nooit rauw." },
+  { id: "mais", name: "Maïs", cat: "Groente", minAge: 8, prep: { 8: "Gekookt en fijngeprakt, of als smeuïge polenta." }, choking: "Hele korrels pas geven als kauwen al goed lukt — eerst prakken.", note: "" },
+  { id: "aardbei", name: "Aardbei", cat: "Fruit", minAge: 6, prep: { 6: "Rijp, geprakt of in dunne plakjes." }, note: "Kan rode irritatie rond het mondje geven door het zuur — onschuldig, geen allergie." },
+  { id: "framboos", name: "Framboos", cat: "Fruit", minAge: 6, prep: { 6: "Platgedrukt of geprakt." }, note: "" },
+  { id: "kiwi", name: "Kiwi", cat: "Fruit", minAge: 6, prep: { 6: "Rijp, geschild en geprakt." }, note: "Zuur — kan onschuldige irritatie rond de mond geven. Start met kleine beetjes." },
+  { id: "meloen", name: "Meloen", cat: "Fruit", minAge: 6, prep: { 6: "Rijp, zonder pitten, geprakt.", 8: "In dunne, zachte plakjes als vingervoedsel." }, note: "" },
+  { id: "pruim", name: "Pruim", cat: "Fruit", minAge: 6, prep: { 6: "Rijp of gestoofd, zonder pit, geprakt." }, note: "Helpt bij een trage stoelgang." },
+  { id: "abrikoos", name: "Abrikoos", cat: "Fruit", minAge: 6, prep: { 6: "Rijp of gestoofd, zonder pit, geprakt." }, note: "" },
+  { id: "kers", name: "Kers", cat: "Fruit", minAge: 9, prep: { 9: "Ontpit en in kwartjes." }, choking: "Altijd ontpitten en in kwartjes snijden — zelfde risico als druiven.", note: "" },
+  { id: "sinaasappel", name: "Sinaasappel / mandarijn", cat: "Fruit", minAge: 6, prep: { 6: "Vruchtvlees zonder vliesjes en pitjes, fijngehakt.", 12: "Partjes in stukjes, vliesjes mogen dan." }, note: "Zuur — kan onschuldige huidirritatie rond de mond geven." },
+  { id: "ananas", name: "Ananas", cat: "Fruit", minAge: 6, prep: { 6: "Rijp, fijngehakt of geprakt — harde kern weglaten." }, note: "Zuur — kleine beetjes." },
+  { id: "rozijnen", name: "Rozijnen", cat: "Fruit", minAge: 12, prep: { 12: "Even weken in warm water zodat ze zacht zijn." }, choking: "Klein, taai en kleverig — pas vanaf 12 maanden en geweekt.", note: "Zoet en plakkerig — liever bij de maaltijd dan als tussendoortje (tandjes)." },
+  { id: "couscous", name: "Couscous", cat: "Granen", minAge: 6, prep: { 6: "Goed gaar en smeuïg gemaakt met wat groentepuree of saus." }, note: "" },
+  { id: "bulgur", name: "Bulgur", cat: "Granen", minAge: 8, prep: { 8: "Goed gaar en vochtig, gemengd met puree of saus." }, note: "" },
+  { id: "polenta", name: "Polenta", cat: "Granen", minAge: 6, prep: { 6: "Als smeuïge pap, of afgekoeld en in zachte reepjes." }, note: "" },
+  { id: "gierst", name: "Gierst", cat: "Granen", minAge: 6, prep: { 6: "Als papje gekookt, zoals havermout." }, note: "" },
+  { id: "rijstwafel", name: "Rijstwafel (ongezouten)", cat: "Granen", minAge: 8, prep: { 8: "Ongezouten en zonder toppings — lost makkelijk op in de mond." }, note: "Met mate vanwege arseen in rijstproducten. Kies altijd de ongezouten versie." },
+  { id: "pannenkoek", name: "Pannenkoek", cat: "Granen", minAge: 8, prep: { 8: "Zelfgemaakt zonder suiker, in dunne reepjes." }, note: "Bevat ei, melk en gluten — handig pas nadat die apart al eens getest zijn." },
+  { id: "tofu", name: "Tofu", cat: "Eiwit", minAge: 6, prep: { 6: "Zachte tofu geprakt, of stevige tofu in gegaarde blokjes." }, allergen: true, note: "Soja is een mogelijk allergeen — start met een klein beetje en observeer." },
+  { id: "kalkoen", name: "Kalkoen", cat: "Eiwit", minAge: 6, prep: { 6: "Goed gaar, fijngeprakt of gemalen.", 9: "In dradige stukjes." }, note: "" },
+  { id: "varkensvlees", name: "Varkensvlees", cat: "Eiwit", minAge: 6, prep: { 6: "Mals gestoofd en fijngemalen." }, note: "Kies mager vlees; geen bewerkte charcuterie zoals worst of hesp (zout en nitriet)." },
+  { id: "witte-bonen", name: "Witte / bruine bonen", cat: "Eiwit", minAge: 6, prep: { 6: "Goed gaar en geprakt, velletjes zoveel mogelijk fijn." }, choking: "Hele bonen kunnen verstikken — altijd prakken.", note: "" },
+  { id: "hummus", name: "Hummus", cat: "Eiwit", minAge: 6, prep: { 6: "Gladde hummus, dun op brood of als dipje." }, allergen: true, note: "Bevat sesam (tahin) — mogelijk allergeen. Zelfgemaakt zonder zout is ideaal." },
+  { id: "tahin", name: "Tahin (sesampasta)", cat: "Eiwit", minAge: 6, prep: { 6: "Heel dun uitgesmeerd of aangelengd door puree." }, allergen: true, choking: "Puur en dik plakt het zoals pindakaas — altijd dun uitsmeren of aanlengen.", note: "Sesam is een belangrijk allergeen — vroeg en met kleine beetjes introduceren." },
+  { id: "notenpasta", name: "Notenpasta (glad)", cat: "Eiwit", minAge: 6, prep: { 6: "Gladde amandel- of cashewpasta, dun uitgesmeerd of aangelengd." }, allergen: true, choking: "Nooit hele noten of stukjes noot vóór 5 jaar — verstikkingsgevaar. Enkel gladde pasta.", note: "Noten zijn een belangrijk allergeen — introduceer elke notensoort apart." },
+  { id: "makreel", name: "Makreel / sardien", cat: "Eiwit", minAge: 6, prep: { 6: "Goed gaar, fijngeprakt en zorgvuldig ontgraat." }, allergen: true, choking: "Zorgvuldig controleren op graten.", note: "Vette vis is heel gezond. Uit blik: kies zonder toegevoegd zout." },
+  { id: "plattekaas", name: "Volle plattekaas", cat: "Zuivel", minAge: 6, prep: { 6: "Puur, zonder toegevoegde suiker." }, note: "" },
+  { id: "ricotta", name: "Ricotta", cat: "Zuivel", minAge: 6, prep: { 6: "Puur of gemengd door groente- of fruitpuree." }, note: "" },
+  { id: "boter", name: "Boter", cat: "Zuivel", minAge: 6, prep: { 6: "Dun op brood of een klontje door de groenten." }, note: "Met mate — gewone ongezouten boter is prima." },
+  { id: "mozzarella", name: "Mozzarella", cat: "Zuivel", minAge: 8, prep: { 8: "Verse mozzarella in kleine, dunne stukjes." }, note: "Enkel gepasteuriseerd — verse mozzarella uit de winkel is dat vrijwel altijd." },
 ];
 
 const RECIPES = [
@@ -729,7 +771,9 @@ export default function App() {
                 {pantry.length} van {FOODS.length} in huis — tik om aan of af te vinken.
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {FOODS.filter((f) => f.name.toLowerCase().includes(pantrySearch.toLowerCase())).map((f) => {
+                {FOODS.filter((f) => f.name.toLowerCase().includes(pantrySearch.toLowerCase()))
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((f) => {
                   const has = pantry.includes(f.id);
                   return (
                     <button
