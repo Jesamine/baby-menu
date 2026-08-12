@@ -25,6 +25,7 @@ const FOODS = [
   { id: "avocado", name: "Avocado", cat: "Fruit", minAge: 6, prep: { 6: "Fijn geprakt met een vork.", 8: "In dikke sticks als vingervoedsel." }, note: "" },
   { id: "banaan", name: "Banaan", cat: "Fruit", minAge: 6, prep: { 6: "Geprakt of als dikke puree.", 8: "Halve banaan als stick om vast te houden." }, note: "" },
   { id: "zoete-aardappel", name: "Zoete aardappel", cat: "Groente", minAge: 6, prep: { 6: "Gekookt en fijn geprakt.", 9: "In zachte, gegaarde blokjes." }, note: "" },
+  { id: "aardappel", name: "Aardappel", cat: "Groente", minAge: 6, prep: { 6: "Gekookt en fijngeprakt, eventueel met een klontje boter of wat melk.", 9: "In zachte, gegaarde blokjes als vingervoedsel." }, note: "Nooit rauw. Groene plekjes en uitlopers ruim wegsnijden." },
   { id: "wortel", name: "Wortel", cat: "Groente", minAge: 6, prep: { 6: "Gekookt tot heel zacht, geprakt of in puree." }, choking: "Nooit rauw of in harde stukken geven — verstikkingsgevaar. Enkel goed gaar en zacht.", note: "" },
   { id: "broccoli", name: "Broccoli", cat: "Groente", minAge: 6, prep: { 6: "Gestoomd tot zacht, als puree.", 8: "Zachte roosjes als vingervoedsel." }, note: "" },
   { id: "courgette", name: "Courgette", cat: "Groente", minAge: 6, prep: { 6: "Gestoomd en geprakt." }, note: "" },
