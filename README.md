@@ -36,6 +36,23 @@ Zonder extra setup werkt de app met `localStorage` — data blijft dan **per toe
 
 Voor lokaal testen: kopieer `.env.example` naar `.env` en vul dezelfde waarden in.
 
+### Foto's in het dagboek (eenmalige extra setup)
+
+Om foto's aan dagboek-entries te kunnen toevoegen heeft de app een Supabase Storage-bucket nodig. Voer dit één keer uit in de **SQL Editor** van je Supabase-project:
+
+```sql
+insert into storage.buckets (id, name, public) values ('isaac-photos', 'isaac-photos', true);
+
+create policy "Allow anon upload isaac-photos" on storage.objects
+  for insert to anon with check (bucket_id = 'isaac-photos');
+create policy "Allow anon update isaac-photos" on storage.objects
+  for update to anon using (bucket_id = 'isaac-photos');
+create policy "Allow anon delete isaac-photos" on storage.objects
+  for delete to anon using (bucket_id = 'isaac-photos');
+```
+
+Foto's worden client-side verkleind (max 1200px) vóór upload. Zelfde kanttekening als hierboven: de bucket is publiek leesbaar voor wie de URL kent.
+
 ## Lokaal uitproberen
 
 ```bash

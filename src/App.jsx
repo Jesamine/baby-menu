@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Search, X, Check, AlertTriangle, Lock, Plus, Trash2, Package, Smile, Meh, Frown, ShoppingCart, Download, Copy, ShieldAlert } from "lucide-react";
+import { Search, X, Check, AlertTriangle, Lock, Plus, Trash2, Package, Smile, Meh, Frown, ShoppingCart, Download, Copy, ShieldAlert, Camera } from "lucide-react";
 import { supabase, supabaseEnabled } from "./supabaseClient";
 
 const COLORS = {
@@ -186,6 +186,46 @@ const REACTIONS = [
   { key: "vies", label: "Vies", icon: Frown, color: "#B8452C" },
 ];
 
+const MEALS = ["Ontbijt", "Lunch", "Snack", "Diner"];
+
+const AMOUNTS = [
+  { key: "weinig", label: "Weinig" },
+  { key: "half", label: "De helft" },
+  { key: "alles", label: "(Bijna) alles" },
+];
+
+function guessMeal(time) {
+  const h = Number(time.slice(0, 2));
+  if (h < 10) return "Ontbijt";
+  if (h < 14) return "Lunch";
+  if (h < 17) return "Snack";
+  return "Diner";
+}
+
+const PHOTO_BUCKET = "isaac-photos";
+
+// Verklein foto's client-side vóór upload — origineel telefoonformaat is
+// onnodig groot voor in de app en vertraagt de sync.
+async function compressImage(file, maxDim = 1200, quality = 0.8) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = url;
+    });
+    const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    return await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 function weekFrequency(logs) {
   const days = last7Days();
   const counts = {};
@@ -252,6 +292,7 @@ export default function App() {
   const [customFoods, setCustomFoods] = useState([]);
   const [showAddFood, setShowAddFood] = useState(false);
   const [foodDraft, setFoodDraft] = useState({ name: "", cat: "Groente", minAge: 6, prep: "", note: "", allergen: false });
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   useEffect(() => {
     const link1 = document.createElement("link");
@@ -387,7 +428,8 @@ export default function App() {
   };
 
   const addLogEntry = (foodId) => {
-    const entry = { id: `${Date.now()}-${foodId}`, foodId, date: selectedDate, time: nowTimeString(), reaction: null, note: "" };
+    const time = nowTimeString();
+    const entry = { id: `${Date.now()}-${foodId}`, foodId, date: selectedDate, time, meal: guessMeal(time), amount: null, reaction: null, note: "", photo: null };
     setLogs((l) => [...l, entry]);
     setTried((t) => (t.includes(foodId) ? t : [...t, foodId]));
   };
@@ -397,7 +439,38 @@ export default function App() {
   };
 
   const removeLogEntry = (id) => {
+    const entry = logs.find((e) => e.id === id);
+    if (entry?.photo && supabaseEnabled) {
+      supabase.storage.from(PHOTO_BUCKET).remove([entry.photo]);
+    }
     setLogs((l) => l.filter((e) => e.id !== id));
+  };
+
+  const photoUrl = (path) => supabase?.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+
+  const addEntryPhoto = async (entry, file) => {
+    if (!supabaseEnabled) return;
+    setPhotoBusy(true);
+    try {
+      const blob = await compressImage(file);
+      const path = `${entry.id}.jpg`;
+      const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+      if (error) throw error;
+      updateLogEntry(entry.id, { photo: path });
+      setSelectedLogEntry((e) => ({ ...e, photo: path }));
+    } catch (e) {
+      window.alert("Foto uploaden lukte niet. Bestaat de 'isaac-photos' bucket al in Supabase? Zie de README voor de eenmalige setup.");
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const removeEntryPhoto = (entry) => {
+    if (entry.photo && supabaseEnabled) {
+      supabase.storage.from(PHOTO_BUCKET).remove([entry.photo]);
+    }
+    updateLogEntry(entry.id, { photo: null });
+    setSelectedLogEntry((e) => ({ ...e, photo: null }));
   };
 
   const assignPlan = (date, mealType, recipeId) => {
@@ -660,9 +733,14 @@ export default function App() {
                       <div className="flex-1">
                         <p className="text-sm font-medium">{food.name}</p>
                         <p className="text-xs" style={{ color: COLORS.inkSoft }}>
-                          {entry.time}{entry.note ? " · heeft notitie" : ""}
+                          {entry.meal ? `${entry.meal} · ` : ""}{entry.time}
+                          {entry.amount ? ` · ${AMOUNTS.find((a) => a.key === entry.amount)?.label.toLowerCase()} gegeten` : ""}
+                          {entry.note ? " · heeft notitie" : ""}
                         </p>
                       </div>
+                      {entry.photo && supabaseEnabled && (
+                        <img src={photoUrl(entry.photo)} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                      )}
                       {ReactionIcon && <ReactionIcon size={16} style={{ color: reactionInfo.color, flexShrink: 0 }} />}
                     </button>
                     <button onClick={() => removeLogEntry(entry.id)}>
@@ -1291,15 +1369,19 @@ export default function App() {
           noteDraft={noteDraft}
           setNoteDraft={setNoteDraft}
           tried={tried}
-          onReaction={(reaction) => {
-            updateLogEntry(selectedLogEntry.id, { reaction });
-            setSelectedLogEntry((e) => ({ ...e, reaction }));
+          onUpdate={(updates) => {
+            updateLogEntry(selectedLogEntry.id, updates);
+            setSelectedLogEntry((e) => ({ ...e, ...updates }));
           }}
           onSave={() => {
             updateLogEntry(selectedLogEntry.id, { note: noteDraft });
             setSelectedLogEntry(null);
           }}
           onClose={() => setSelectedLogEntry(null)}
+          photoUrl={photoUrl}
+          photoBusy={photoBusy}
+          onPhotoPick={(file) => addEntryPhoto(selectedLogEntry, file)}
+          onPhotoRemove={() => removeEntryPhoto(selectedLogEntry)}
         />
       )}
 
@@ -1411,7 +1493,7 @@ export default function App() {
   );
 }
 
-function LogEntryModal({ entry, food, noteDraft, setNoteDraft, onSave, onClose, onReaction, tried }) {
+function LogEntryModal({ entry, food, noteDraft, setNoteDraft, onSave, onClose, onUpdate, tried, photoUrl, photoBusy, onPhotoPick, onPhotoRemove }) {
   return (
     <div
       className="fixed inset-0 flex items-end justify-center z-50"
@@ -1420,7 +1502,7 @@ function LogEntryModal({ entry, food, noteDraft, setNoteDraft, onSave, onClose, 
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-t-3xl p-5 pb-8 max-h-[75vh] overflow-y-auto"
+        className="w-full max-w-md rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto"
         style={{ background: COLORS.surface }}
       >
         <div className="flex justify-between items-start mb-4">
@@ -1431,6 +1513,53 @@ function LogEntryModal({ entry, food, noteDraft, setNoteDraft, onSave, onClose, 
           <button onClick={onClose}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
         </div>
 
+        <div className="flex gap-3 mb-4">
+          <div className="flex-1">
+            <p className="text-xs uppercase tracking-wide mb-2" style={{ color: COLORS.inkSoft }}>Datum</p>
+            <input
+              type="date"
+              value={entry.date}
+              onChange={(e) => e.target.value && onUpdate({ date: e.target.value })}
+              className="w-full rounded-xl py-2 px-3 text-sm outline-none"
+              style={{ background: COLORS.bg, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+            />
+          </div>
+        </div>
+
+        <p className="text-xs uppercase tracking-wide mb-2" style={{ color: COLORS.inkSoft }}>Maaltijd</p>
+        <div className="flex gap-2 mb-4">
+          {MEALS.map((m) => {
+            const active = entry.meal === m;
+            return (
+              <button
+                key={m}
+                onClick={() => onUpdate({ meal: m })}
+                className="flex-1 rounded-xl py-2 text-xs font-medium"
+                style={{ background: active ? COLORS.header : COLORS.bg, color: active ? "#fff" : COLORS.inkSoft }}
+              >
+                {m}
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="text-xs uppercase tracking-wide mb-2" style={{ color: COLORS.inkSoft }}>Hoeveel gegeten?</p>
+        <div className="flex gap-2 mb-4">
+          {AMOUNTS.map((a) => {
+            const active = entry.amount === a.key;
+            return (
+              <button
+                key={a.key}
+                onClick={() => onUpdate({ amount: active ? null : a.key })}
+                className="flex-1 rounded-xl py-2.5 text-xs font-medium"
+                style={{ background: active ? CATEGORY_COLORS.Groente : COLORS.bg, color: active ? "#fff" : COLORS.inkSoft }}
+              >
+                {a.label}
+              </button>
+            );
+          })}
+        </div>
+
         <p className="text-xs uppercase tracking-wide mb-2" style={{ color: COLORS.inkSoft }}>Reactie</p>
         <div className="flex gap-2 mb-4">
           {REACTIONS.map((r) => {
@@ -1439,7 +1568,7 @@ function LogEntryModal({ entry, food, noteDraft, setNoteDraft, onSave, onClose, 
             return (
               <button
                 key={r.key}
-                onClick={() => onReaction(active ? null : r.key)}
+                onClick={() => onUpdate({ reaction: active ? null : r.key })}
                 className="flex-1 flex flex-col items-center gap-1 rounded-xl py-2.5"
                 style={{ background: active ? r.color : COLORS.bg, color: active ? "#fff" : COLORS.inkSoft }}
               >
@@ -1449,6 +1578,39 @@ function LogEntryModal({ entry, food, noteDraft, setNoteDraft, onSave, onClose, 
             );
           })}
         </div>
+
+        {supabaseEnabled && (
+          <>
+            <p className="text-xs uppercase tracking-wide mb-2" style={{ color: COLORS.inkSoft }}>Foto</p>
+            {entry.photo ? (
+              <div className="relative mb-4">
+                <img src={photoUrl(entry.photo)} alt={food?.name} className="w-full rounded-xl max-h-64 object-cover" />
+                <button
+                  onClick={onPhotoRemove}
+                  className="absolute top-2 right-2 rounded-full p-1.5"
+                  style={{ background: "rgba(51,42,49,0.6)" }}
+                >
+                  <Trash2 size={14} color="#fff" />
+                </button>
+              </div>
+            ) : (
+              <label
+                className="w-full rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2 mb-4 cursor-pointer"
+                style={{ background: COLORS.bg, color: photoBusy ? COLORS.inkSoft : COLORS.ink, border: `1px dashed ${COLORS.inkSoft}` }}
+              >
+                <Camera size={16} />
+                {photoBusy ? "Bezig met uploaden..." : "Foto toevoegen"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={photoBusy}
+                  onChange={(e) => e.target.files?.[0] && onPhotoPick(e.target.files[0])}
+                />
+              </label>
+            )}
+          </>
+        )}
 
         <p className="text-xs uppercase tracking-wide mb-2" style={{ color: COLORS.inkSoft }}>Notitie</p>
         <textarea
