@@ -475,8 +475,10 @@ export default function App() {
         type = file.type || "application/octet-stream";
         ext = (file.name.split(".").pop() || "bin").toLowerCase();
       }
-      const path = `${entry.id}.${ext}`;
-      const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, { upsert: true, contentType: type });
+      // Geen upsert: dat pad vereist extra RLS-policies (update+select) op
+      // storage.objects. Uniek pad per upload maakt upsert overbodig.
+      const path = `${entry.id}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, { contentType: type });
       if (error) throw error;
       updateLogEntry(entry.id, { photo: path });
       setSelectedLogEntry((e) => ({ ...e, photo: path }));
