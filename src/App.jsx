@@ -249,6 +249,9 @@ export default function App() {
   const [showShoppingList, setShowShoppingList] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [copyLabel, setCopyLabel] = useState("Kopieer");
+  const [customFoods, setCustomFoods] = useState([]);
+  const [showAddFood, setShowAddFood] = useState(false);
+  const [foodDraft, setFoodDraft] = useState({ name: "", cat: "Groente", minAge: 6, prep: "", note: "", allergen: false });
 
   useEffect(() => {
     const link1 = document.createElement("link");
@@ -259,11 +262,15 @@ export default function App() {
 
   const lastSyncedRef = useRef(null);
   const saveTimeoutRef = useRef(null);
-  // actuele sliderwaarde voor de realtime-handler (die heeft een lege deps-array)
+  // actuele waarden voor de realtime-handler (die heeft een lege deps-array)
   const ageSliderRef = useRef(ageSlider);
   useEffect(() => {
     ageSliderRef.current = ageSlider;
   }, [ageSlider]);
+  const customFoodsRef = useRef(customFoods);
+  useEffect(() => {
+    customFoodsRef.current = customFoods;
+  }, [customFoods]);
 
   useEffect(() => {
     (async () => {
@@ -277,9 +284,10 @@ export default function App() {
             setWeekPlan(d.weekPlan || {});
             setPantry(d.pantry || []);
             setAgeSlider(d.ageSlider || 5);
+            setCustomFoods(d.customFoods || []);
             lastSyncedRef.current = stableStringify(d);
           } else {
-            const initial = { tried: [], logs: [], weekPlan: {}, pantry: [], ageSlider: 5 };
+            const initial = { tried: [], logs: [], weekPlan: {}, pantry: [], ageSlider: 5, customFoods: [] };
             await supabase.from("isaac_data").upsert({ id: "isaac", data: initial });
             lastSyncedRef.current = stableStringify(initial);
           }
@@ -296,6 +304,7 @@ export default function App() {
             setWeekPlan(parsed.weekPlan || {});
             setPantry(parsed.pantry || []);
             setAgeSlider(parsed.ageSlider || 5);
+            setCustomFoods(parsed.customFoods || []);
           }
         } catch (e) {
           // no saved data yet
@@ -307,7 +316,7 @@ export default function App() {
 
   useEffect(() => {
     if (!loaded) return;
-    const current = { tried, logs, weekPlan, pantry, ageSlider };
+    const current = { tried, logs, weekPlan, pantry, ageSlider, customFoods };
     const currentStr = stableStringify(current);
     if (currentStr === lastSyncedRef.current) return;
 
@@ -330,7 +339,7 @@ export default function App() {
         // will retry on next change
       }
     }, 800);
-  }, [tried, logs, weekPlan, pantry, ageSlider, loaded]);
+  }, [tried, logs, weekPlan, pantry, ageSlider, customFoods, loaded]);
 
   useEffect(() => {
     if (!supabaseEnabled) return;
@@ -342,14 +351,15 @@ export default function App() {
         (payload) => {
           const incoming = payload.new?.data;
           if (!incoming) return;
-          // Een client met een oude app-versie stuurt data zonder ageSlider mee;
-          // behoud dan de lokale waarde in plaats van te resetten.
+          // Een client met een oude app-versie stuurt data zonder de nieuwere
+          // velden mee; behoud dan de lokale waarden in plaats van te resetten.
           const merged = {
             tried: incoming.tried || [],
             logs: incoming.logs || [],
             weekPlan: incoming.weekPlan || {},
             pantry: incoming.pantry || [],
             ageSlider: incoming.ageSlider ?? ageSliderRef.current,
+            customFoods: incoming.customFoods ?? customFoodsRef.current,
           };
           const mergedStr = stableStringify(merged);
           if (mergedStr === lastSyncedRef.current) return;
@@ -358,6 +368,7 @@ export default function App() {
           setWeekPlan(merged.weekPlan);
           setPantry(merged.pantry);
           setAgeSlider(merged.ageSlider);
+          setCustomFoods(merged.customFoods);
           lastSyncedRef.current = mergedStr;
         }
       )
@@ -407,13 +418,43 @@ export default function App() {
     setActiveCats((c) => (c.includes(cat) ? c.filter((x) => x !== cat) : [...c, cat]));
   };
 
+  const allFoods = useMemo(() => [...FOODS, ...customFoods], [customFoods]);
+
+  const addCustomFood = () => {
+    const name = foodDraft.name.trim();
+    if (!name) return;
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    const newFood = {
+      id: `custom-${slug}-${Date.now().toString(36)}`,
+      name,
+      cat: foodDraft.cat,
+      minAge: foodDraft.minAge,
+      prep: foodDraft.prep.trim() ? { [foodDraft.minAge]: foodDraft.prep.trim() } : {},
+      note: foodDraft.note.trim(),
+      custom: true,
+      ...(foodDraft.allergen ? { allergen: true } : {}),
+    };
+    setCustomFoods((c) => [...c, newFood]);
+    setFoodDraft({ name: "", cat: "Groente", minAge: 6, prep: "", note: "", allergen: false });
+    setShowAddFood(false);
+  };
+
+  const removeCustomFood = (id) => {
+    if (!window.confirm("Dit voedingsmiddel verwijderen? Ook de dagboek-entries ervan verdwijnen.")) return;
+    setCustomFoods((c) => c.filter((f) => f.id !== id));
+    setTried((t) => t.filter((x) => x !== id));
+    setPantry((p) => p.filter((x) => x !== id));
+    setLogs((l) => l.filter((e) => e.foodId !== id));
+    setSelected(null);
+  };
+
   const filtered = useMemo(() => {
-    return FOODS.filter((f) => {
+    return allFoods.filter((f) => {
       if (query && !f.name.toLowerCase().includes(query.toLowerCase())) return false;
       if (activeCats.length && !activeCats.includes(f.cat)) return false;
       return true;
     }).sort((a, b) => a.minAge - b.minAge || a.name.localeCompare(b.name));
-  }, [query, activeCats]);
+  }, [allFoods, query, activeCats]);
 
   return (
     <div style={{ background: COLORS.bg, minHeight: "100vh", fontFamily: "'IBM Plex Sans', sans-serif", color: COLORS.ink }}>
@@ -533,6 +574,15 @@ export default function App() {
         {filtered.length === 0 && (
           <p className="text-sm text-center mt-8" style={{ color: COLORS.inkSoft }}>Niets gevonden voor deze zoekopdracht.</p>
         )}
+
+        <button
+          onClick={() => setShowAddFood(true)}
+          className="w-full rounded-2xl py-3 text-sm font-medium mt-4 flex items-center justify-center gap-2"
+          style={{ background: COLORS.surface, border: `1px dashed ${COLORS.inkSoft}`, color: COLORS.header }}
+        >
+          <Plus size={16} />
+          Zelf een voedingsmiddel toevoegen
+        </button>
         </>
         )}
 
@@ -541,7 +591,7 @@ export default function App() {
           <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
             {last7Days().map((iso) => {
               const dayEntries = logs.filter((e) => e.date === iso);
-              const cats = [...new Set(dayEntries.map((e) => FOODS.find((f) => f.id === e.foodId)?.cat))].filter(Boolean);
+              const cats = [...new Set(dayEntries.map((e) => allFoods.find((f) => f.id === e.foodId)?.cat))].filter(Boolean);
               const { weekday, num } = dayLabel(iso);
               const active = iso === selectedDate;
               return (
@@ -586,7 +636,7 @@ export default function App() {
               .filter((e) => e.date === selectedDate)
               .sort((a, b) => a.time.localeCompare(b.time))
               .map((entry) => {
-                const food = FOODS.find((f) => f.id === entry.foodId);
+                const food = allFoods.find((f) => f.id === entry.foodId);
                 if (!food) return null;
                 const reactionInfo = REACTIONS.find((r) => r.key === entry.reaction);
                 const ReactionIcon = reactionInfo?.icon;
@@ -633,7 +683,7 @@ export default function App() {
               <p className="text-xs uppercase tracking-wide mb-3" style={{ color: COLORS.inkSoft }}>Deze week vaakst gegeten</p>
               <div className="space-y-2">
                 {weekFrequency(logs).map(({ foodId, count }) => {
-                  const food = FOODS.find((f) => f.id === foodId);
+                  const food = allFoods.find((f) => f.id === foodId);
                   if (!food) return null;
                   const max = weekFrequency(logs)[0].count;
                   return (
@@ -708,7 +758,7 @@ export default function App() {
                     >
                       <div className="flex -space-x-1.5 flex-shrink-0">
                         {r.foodIds.slice(0, 3).map((id) => {
-                          const f = FOODS.find((ff) => ff.id === id);
+                          const f = allFoods.find((ff) => ff.id === id);
                           return (
                             <span
                               key={id}
@@ -781,10 +831,10 @@ export default function App() {
                 />
               </div>
               <p className="text-xs mb-3" style={{ color: COLORS.inkSoft }}>
-                {pantry.length} van {FOODS.length} in huis — tik om aan of af te vinken.
+                {pantry.length} van {allFoods.length} in huis — tik om aan of af te vinken.
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {FOODS.filter((f) => f.name.toLowerCase().includes(pantrySearch.toLowerCase()))
+                {allFoods.filter((f) => f.name.toLowerCase().includes(pantrySearch.toLowerCase()))
                   .sort((a, b) => a.name.localeCompare(b.name))
                   .map((f) => {
                   const has = pantry.includes(f.id);
@@ -816,7 +866,7 @@ export default function App() {
                 De grote allergenen uit dit menu — introduceer ze bewust en één voor één, en overleg bij eczeem of familiale allergie met je kinderarts.
               </p>
               {ALLERGENS.map((a) => {
-                const food = FOODS.find((f) => f.id === a.foodId);
+                const food = allFoods.find((f) => f.id === a.foodId);
                 const introduced = tried.includes(a.foodId);
                 const firstLog = logs.filter((e) => e.foodId === a.foodId).sort((x, y) => (x.date + x.time).localeCompare(y.date + y.time))[0];
                 return (
@@ -881,7 +931,10 @@ export default function App() {
                   style={{ width: 30, height: 30, background: CATEGORY_COLORS[selected.cat], borderRadius: "60% 40% 55% 45% / 50% 55% 45% 50%" }}
                 />
                 <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-2xl font-semibold">{selected.name}</h2>
-                <p className="text-xs mt-1" style={{ color: COLORS.inkSoft }}>{selected.cat} · vanaf {ageLabel(selected.minAge)}</p>
+                <p className="text-xs mt-1" style={{ color: COLORS.inkSoft }}>
+                  {selected.cat} · vanaf {ageLabel(selected.minAge)}
+                  {selected.custom && " · zelf toegevoegd"}
+                </p>
               </div>
               <button onClick={() => setSelected(null)}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
             </div>
@@ -928,6 +981,125 @@ export default function App() {
               <Check size={16} />
               {tried.includes(selected.id) ? "Al geprobeerd" : "Markeer als geprobeerd"}
             </button>
+
+            {selected.custom && (
+              <button
+                onClick={() => removeCustomFood(selected.id)}
+                className="w-full rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2 mt-2"
+                style={{ background: COLORS.warnBg, color: COLORS.warn }}
+              >
+                <Trash2 size={16} />
+                Verwijder dit voedingsmiddel
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showAddFood && (
+        <div
+          className="fixed inset-0 flex items-end justify-center z-50"
+          style={{ background: "rgba(51,42,49,0.4)" }}
+          onClick={() => setShowAddFood(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto"
+            style={{ background: COLORS.surface }}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 style={{ fontFamily: "'Fraunces', serif", color: COLORS.header }} className="text-xl font-semibold">
+                Zelf een voedingsmiddel toevoegen
+              </h2>
+              <button onClick={() => setShowAddFood(false)}><X size={20} style={{ color: COLORS.inkSoft }} /></button>
+            </div>
+
+            <label className="text-xs uppercase tracking-wide" style={{ color: COLORS.inkSoft }}>Naam</label>
+            <input
+              value={foodDraft.name}
+              onChange={(e) => setFoodDraft((d) => ({ ...d, name: e.target.value }))}
+              placeholder="Bv. Zoete puntpaprika"
+              autoFocus
+              className="w-full rounded-xl py-2.5 px-3 text-sm outline-none mt-1 mb-4"
+              style={{ background: COLORS.bg, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+            />
+
+            <label className="text-xs uppercase tracking-wide" style={{ color: COLORS.inkSoft }}>Categorie</label>
+            <div className="flex gap-2 flex-wrap mt-1 mb-4">
+              {Object.keys(CATEGORY_COLORS).map((cat) => {
+                const active = foodDraft.cat === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setFoodDraft((d) => ({ ...d, cat }))}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition"
+                    style={{
+                      background: active ? CATEGORY_COLORS[cat] : COLORS.bg,
+                      color: active ? "#fff" : COLORS.ink,
+                      border: `1px solid ${active ? CATEGORY_COLORS[cat] : COLORS.line}`,
+                    }}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-between items-baseline">
+              <label className="text-xs uppercase tracking-wide" style={{ color: COLORS.inkSoft }}>Vanaf</label>
+              <span style={{ color: COLORS.header, fontFamily: "'Fraunces', serif" }} className="text-base font-semibold">{ageLabel(foodDraft.minAge)}</span>
+            </div>
+            <input
+              type="range"
+              min={4}
+              max={24}
+              value={foodDraft.minAge}
+              onChange={(e) => setFoodDraft((d) => ({ ...d, minAge: Number(e.target.value) }))}
+              className="w-full mb-4"
+              style={{ accentColor: COLORS.header }}
+            />
+
+            <label className="text-xs uppercase tracking-wide" style={{ color: COLORS.inkSoft }}>Bereiding (optioneel)</label>
+            <textarea
+              value={foodDraft.prep}
+              onChange={(e) => setFoodDraft((d) => ({ ...d, prep: e.target.value }))}
+              placeholder="Bv. Gestoomd tot zacht en fijngeprakt."
+              rows={2}
+              className="w-full rounded-xl py-2.5 px-3 text-sm outline-none mt-1 mb-4 resize-none"
+              style={{ background: COLORS.bg, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+            />
+
+            <label className="text-xs uppercase tracking-wide" style={{ color: COLORS.inkSoft }}>Opmerking (optioneel)</label>
+            <input
+              value={foodDraft.note}
+              onChange={(e) => setFoodDraft((d) => ({ ...d, note: e.target.value }))}
+              placeholder="Bv. Enkel goed rijp geven."
+              className="w-full rounded-xl py-2.5 px-3 text-sm outline-none mt-1 mb-4"
+              style={{ background: COLORS.bg, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+            />
+
+            <button
+              onClick={() => setFoodDraft((d) => ({ ...d, allergen: !d.allergen }))}
+              className="w-full flex items-center gap-2 rounded-xl p-3 mb-4 text-left"
+              style={{ background: foodDraft.allergen ? COLORS.warnBg : COLORS.bg, border: `1px solid ${COLORS.line}` }}
+            >
+              <AlertTriangle size={16} style={{ color: foodDraft.allergen ? COLORS.warn : COLORS.inkSoft }} />
+              <span className="text-sm flex-1" style={{ color: foodDraft.allergen ? COLORS.warn : COLORS.ink }}>Mogelijk allergeen</span>
+              {foodDraft.allergen && <Check size={16} style={{ color: COLORS.warn }} />}
+            </button>
+
+            <button
+              onClick={addCustomFood}
+              disabled={!foodDraft.name.trim()}
+              className="w-full rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2"
+              style={{
+                background: foodDraft.name.trim() ? COLORS.header : COLORS.bg,
+                color: foodDraft.name.trim() ? "#fff" : COLORS.inkSoft,
+              }}
+            >
+              <Plus size={16} />
+              Toevoegen
+            </button>
           </div>
         </div>
       )}
@@ -963,7 +1135,7 @@ export default function App() {
             </div>
 
             <div className="space-y-1.5">
-              {FOODS.filter((f) => f.name.toLowerCase().includes(logSearch.toLowerCase())).map((f) => (
+              {allFoods.filter((f) => f.name.toLowerCase().includes(logSearch.toLowerCase())).map((f) => (
                 <button
                   key={f.id}
                   onClick={() => addLogEntry(f.id)}
@@ -1012,7 +1184,7 @@ export default function App() {
             <p className="text-xs uppercase tracking-wide mb-2 mt-4" style={{ color: COLORS.inkSoft }}>Ingrediënten</p>
             <div className="flex flex-wrap gap-2 mb-5">
               {selectedRecipe.foodIds.map((id) => {
-                const f = FOODS.find((ff) => ff.id === id);
+                const f = allFoods.find((ff) => ff.id === id);
                 const known = tried.includes(id);
                 return (
                   <span
@@ -1092,7 +1264,7 @@ export default function App() {
                   >
                     <div className="flex -space-x-1.5 flex-shrink-0">
                       {r.foodIds.slice(0, 3).map((id) => {
-                        const f = FOODS.find((ff) => ff.id === id);
+                        const f = allFoods.find((ff) => ff.id === id);
                         return (
                           <span
                             key={id}
@@ -1115,7 +1287,7 @@ export default function App() {
       {selectedLogEntry && (
         <LogEntryModal
           entry={selectedLogEntry}
-          food={FOODS.find((f) => f.id === selectedLogEntry.foodId)}
+          food={allFoods.find((f) => f.id === selectedLogEntry.foodId)}
           noteDraft={noteDraft}
           setNoteDraft={setNoteDraft}
           tried={tried}
@@ -1168,7 +1340,7 @@ export default function App() {
               return (
                 <div className="space-y-1.5">
                   {neededIds.map((id) => {
-                    const f = FOODS.find((ff) => ff.id === id);
+                    const f = allFoods.find((ff) => ff.id === id);
                     if (!f) return null;
                     return (
                       <button
