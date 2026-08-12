@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Search, X, Check, AlertTriangle, Lock, Plus, Trash2, Package, Smile, Meh, Frown, ShoppingCart, Download, Copy, ShieldAlert, Camera } from "lucide-react";
+import { Search, X, Check, AlertTriangle, Lock, Plus, Trash2, Package, Smile, Meh, Frown, ShoppingCart, Download, Copy, ShieldAlert, Camera, Milk } from "lucide-react";
 import { supabase, supabaseEnabled } from "./supabaseClient";
 
 const COLORS = {
@@ -48,6 +48,7 @@ const FOODS = [
   { id: "linzen", name: "Linzen", cat: "Eiwit", minAge: 6, prep: { 6: "Goed gaar gekookt en fijngeprakt." }, note: "" },
   { id: "kikkererwten", name: "Kikkererwten", cat: "Eiwit", minAge: 6, prep: { 6: "Gaar en goed geprakt (velletjes kunnen blijven plakken)." }, choking: "Hele kikkererwten kunnen verstikkingsgevaar geven — goed prakken.", note: "" },
   { id: "pindakaas", name: "Pindakaas (glad)", cat: "Eiwit", minAge: 6, prep: { 6: "Dun uitgesmeerd op brood of aangelengd met wat water/puree — nooit een lepel dik." }, allergen: true, choking: "Nooit een klodder pure pindakaas geven — plakt en verstikt.", note: "Belangrijk allergeen. Vroege introductie wordt aangeraden. Bij eczeem of familiale allergie: overleg eerst met je kinderarts of Kind en Gezin." },
+  { id: "melk", name: "Melk (moeder- of flesvoeding)", cat: "Zuivel", minAge: 4, prep: {}, note: "Moedermelk of opvolgmelk blijft de basis naast de eerste hapjes. Gewone koemelk als drank pas vanaf 12 maanden." },
   { id: "yoghurt", name: "Volle natuuryoghurt", cat: "Zuivel", minAge: 6, prep: { 6: "Puur, zonder toegevoegde suiker." }, note: "Zuivel als voeding mag vanaf 6m; koemelk als drank pas vanaf 12m." },
   { id: "kaas", name: "Zachte kaas (gepasteuriseerd)", cat: "Zuivel", minAge: 6, prep: { 6: "In kleine geraspte of gesmolten stukjes." }, note: "Vermijd rauwmelkse/ongepasteuriseerde kaas." },
   { id: "honing", name: "Honing", cat: "Fruit", minAge: 12, prep: {}, choking: "Nooit vóór 12 maanden — risico op infant botulisme.", note: "Pas vanaf 12 maanden, ook niet verwerkt in gebak voor die leeftijd." },
@@ -302,6 +303,7 @@ export default function App() {
   const [showAddFood, setShowAddFood] = useState(false);
   const [foodDraft, setFoodDraft] = useState({ name: "", cat: "Groente", minAge: 6, prep: "", note: "", allergen: false });
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [milkLogged, setMilkLogged] = useState(false);
 
   useEffect(() => {
     const link1 = document.createElement("link");
@@ -436,12 +438,18 @@ export default function App() {
     setTried((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
   };
 
-  const addLogEntry = (foodIds) => {
+  const addLogEntry = (foodIds, date = selectedDate) => {
     if (!foodIds.length) return;
     const time = nowTimeString();
-    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, foodIds, date: selectedDate, time, meal: guessMeal(time), amount: null, reaction: null, note: "", photo: null };
+    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, foodIds, date, time, meal: guessMeal(time), amount: null, reaction: null, note: "", photo: null };
     setLogs((l) => [...l, entry]);
     setTried((t) => [...new Set([...t, ...foodIds])]);
+  };
+
+  const quickLogMilk = () => {
+    addLogEntry(["melk"], todayISO());
+    setMilkLogged(true);
+    setTimeout(() => setMilkLogged(false), 2000);
   };
 
   const updateLogEntry = (id, updates) => {
@@ -615,6 +623,20 @@ export default function App() {
                 <span>24m</span>
               </div>
             </div>
+
+            <button
+              onClick={quickLogMilk}
+              disabled={milkLogged}
+              className="w-full rounded-2xl p-3.5 mb-4 flex items-center justify-center gap-2 text-sm font-medium"
+              style={{
+                background: milkLogged ? CATEGORY_COLORS.Groente : COLORS.surface,
+                color: milkLogged ? "#fff" : COLORS.header,
+                border: `1px solid ${milkLogged ? CATEGORY_COLORS.Groente : COLORS.line}`,
+              }}
+            >
+              {milkLogged ? <Check size={16} /> : <Milk size={16} />}
+              {milkLogged ? "Melk in het dagboek gezet!" : "Melk gedronken — zet in dagboek"}
+            </button>
 
             <div className="relative mb-3">
               <Search size={16} className="absolute -translate-y-1/2 left-3 top-1/2" style={{ color: COLORS.inkSoft }} />
