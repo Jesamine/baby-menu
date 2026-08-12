@@ -5,3 +5,14 @@
 html, body, #root {
   min-height: 100%;
 }
+
+/* iOS Safari zoomt automatisch in op invoervelden met een lettergrootte
+   onder 16px. Op touch-toestellen krijgen alle velden daarom minstens
+   16px, zodat er niets te zoomen valt. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
