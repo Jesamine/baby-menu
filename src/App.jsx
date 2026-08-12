@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Search, X, Check, AlertTriangle, Lock, Plus, Trash2, Package, Smile, Meh, Frown, ShoppingCart, Download, Copy, ShieldAlert, Camera, Milk } from "lucide-react";
+import { Search, X, Check, AlertTriangle, Lock, Plus, Trash2, Package, Smile, Meh, Frown, ShoppingCart, Download, Copy, ShieldAlert, Camera } from "lucide-react";
 import { supabase, supabaseEnabled } from "./supabaseClient";
 
 const COLORS = {
@@ -303,7 +303,6 @@ export default function App() {
   const [showAddFood, setShowAddFood] = useState(false);
   const [foodDraft, setFoodDraft] = useState({ name: "", cat: "Groente", minAge: 6, prep: "", note: "", allergen: false });
   const [photoBusy, setPhotoBusy] = useState(false);
-  const [milkLogged, setMilkLogged] = useState(false);
 
   useEffect(() => {
     const link1 = document.createElement("link");
@@ -439,17 +438,18 @@ export default function App() {
   };
 
   const addLogEntry = (foodIds, date = selectedDate) => {
-    if (!foodIds.length) return;
+    if (!foodIds.length) return null;
     const time = nowTimeString();
     const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, foodIds, date, time, meal: guessMeal(time), amount: null, reaction: null, note: "", photo: null };
     setLogs((l) => [...l, entry]);
     setTried((t) => [...new Set([...t, ...foodIds])]);
+    return entry;
   };
 
-  const quickLogMilk = () => {
-    addLogEntry(["melk"], todayISO());
-    setMilkLogged(true);
-    setTimeout(() => setMilkLogged(false), 2000);
+  const openAddLog = () => {
+    setLogSelection([]);
+    setLogSearch("");
+    setShowAddLog(true);
   };
 
   const updateLogEntry = (id, updates) => {
@@ -625,17 +625,15 @@ export default function App() {
             </div>
 
             <button
-              onClick={quickLogMilk}
-              disabled={milkLogged}
-              className="w-full rounded-2xl p-3.5 mb-4 flex items-center justify-center gap-2 text-sm font-medium"
-              style={{
-                background: milkLogged ? CATEGORY_COLORS.Groente : COLORS.surface,
-                color: milkLogged ? "#fff" : COLORS.header,
-                border: `1px solid ${milkLogged ? CATEGORY_COLORS.Groente : COLORS.line}`,
+              onClick={() => {
+                setSelectedDate(todayISO());
+                openAddLog();
               }}
+              className="w-full rounded-2xl p-3.5 mb-4 flex items-center justify-center gap-2 text-sm font-medium"
+              style={{ background: COLORS.header, color: "#fff" }}
             >
-              {milkLogged ? <Check size={16} /> : <Milk size={16} />}
-              {milkLogged ? "Melk in het dagboek gezet!" : "Melk gedronken — zet in dagboek"}
+              <Plus size={16} />
+              Nieuwe dagboek-entry
             </button>
 
             <div className="relative mb-3">
@@ -754,9 +752,7 @@ export default function App() {
               </h2>
               <button
                 onClick={() => {
-                  setLogSelection([]);
-                  setLogSearch("");
-                  setShowAddLog(true);
+                  openAddLog();
                 }}
                 className="flex items-center gap-1 text-sm font-medium rounded-full px-3 py-1.5"
                 style={{ background: COLORS.header, color: "#fff" }}
@@ -1301,9 +1297,13 @@ export default function App() {
             <button
               onClick={() => {
                 if (logSelection.length) {
-                  addLogEntry(logSelection);
+                  const entry = addLogEntry(logSelection);
                   setLogSelection([]);
                   setLogSearch("");
+                  if (entry) {
+                    setNoteDraft("");
+                    setSelectedLogEntry(entry);
+                  }
                 }
                 setShowAddLog(false);
               }}
