@@ -108,6 +108,19 @@ const RECIPES = [
   { id: "r11", name: "Zalmpuree met wortel", mealType: "Diner", foodIds: ["vis", "wortel"], steps: ["Gaar de zalm en controleer zorgvuldig op graten.", "Kook de wortel heel zacht.", "Prak beide samen."] },
   { id: "r12", name: "Yoghurt met mango", mealType: "Snack", foodIds: ["yoghurt", "mango"], steps: ["Prak de mango fijn.", "Meng door de volle yoghurt."] },
   { id: "r13", name: "Toast met pindakaas", mealType: "Snack", foodIds: ["volkoren-brood", "pindakaas"], steps: ["Rooster het brood.", "Smeer een heel dunne laag gladde pindakaas uit — nooit een dikke klodder.", "Snijd in soldaatjes."] },
+  { id: "r14", name: "Gierstpap met abrikoos", mealType: "Ontbijt", foodIds: ["gierst", "abrikoos"], steps: ["Kook de gierst tot een zacht papje.", "Stoof de abrikoos zacht en prak fijn.", "Meng door de pap."] },
+  { id: "r15", name: "Plattekaas met aardbei", mealType: "Ontbijt", foodIds: ["plattekaas", "aardbei"], steps: ["Prak rijpe aardbeien fijn.", "Meng door de volle plattekaas."] },
+  { id: "r16", name: "Polentapap met pruim", mealType: "Ontbijt", foodIds: ["polenta", "pruim"], steps: ["Kook de polenta als een smeuïge pap.", "Stoof de pruim zonder pit en prak fijn.", "Meng samen."] },
+  { id: "r17", name: "Toast met hummus en komkommer", mealType: "Lunch", foodIds: ["volkoren-brood", "hummus", "komkommer"], steps: ["Rooster het brood en smeer er gladde hummus op.", "Snijd in soldaatjes.", "Geef geschilde komkommersticks ernaast."] },
+  { id: "r18", name: "Couscous met tomaat en erwten", mealType: "Lunch", foodIds: ["couscous", "tomaat", "erwten"], steps: ["Maak de couscous smeuïg met wat water of groentenat.", "Ontvel de tomaat en prak samen met de gare erwten goed fijn.", "Meng alles door elkaar."] },
+  { id: "r19", name: "Witte bonenprak met paprika", mealType: "Lunch", foodIds: ["witte-bonen", "paprika"], steps: ["Rooster de paprika en verwijder het vel.", "Prak de gare bonen goed fijn samen met de paprika."] },
+  { id: "r20", name: "Kalkoen-pastinaakstoofje", mealType: "Diner", foodIds: ["kalkoen", "pastinaak", "wortel"], steps: ["Stoof kalkoen, pastinaak en wortel samen goed gaar.", "Prak of maal fijn naargelang leeftijd."] },
+  { id: "r21", name: "Pasta met spinazie en ricotta", mealType: "Diner", foodIds: ["pasta", "spinazie", "ricotta"], steps: ["Kook de pasta goed gaar.", "Laat verse spinazie slinken en hak heel fijn.", "Meng met de ricotta door de pasta."] },
+  { id: "r22", name: "Varkensstoofje met knolselder en appel", mealType: "Diner", foodIds: ["varkensvlees", "knolselder", "appel"], steps: ["Stoof mager varkensvlees heel mals.", "Kook knolselder en appel gaar en prak fijn.", "Meng alles samen."] },
+  { id: "r23", name: "Linzen-auberginestoof", mealType: "Diner", foodIds: ["linzen", "aubergine", "tomaat"], steps: ["Stoof de aubergine en ontvelde tomaat zacht.", "Kook de linzen gaar.", "Prak alles samen tot een smeuïge stoof."] },
+  { id: "r24", name: "Makreelprak met pastinaak", mealType: "Diner", foodIds: ["makreel", "pastinaak"], steps: ["Gaar de makreel en controleer zorgvuldig op graten.", "Kook de pastinaak zacht en prak.", "Meng samen."] },
+  { id: "r25", name: "Meloen met ricotta-dip", mealType: "Snack", foodIds: ["meloen", "ricotta"], steps: ["Snijd rijpe meloen zonder pitten in dunne, zachte plakjes.", "Geef een lepeltje ricotta als dipje erbij."] },
+  { id: "r26", name: "Rijstwafel met tahin en banaan", mealType: "Snack", foodIds: ["rijstwafel", "tahin", "banaan"], steps: ["Smeer een heel dun laagje tahin op de rijstwafel.", "Beleg met dunne plakjes banaan."] },
 ];
 
 function ageLabel(age) {
